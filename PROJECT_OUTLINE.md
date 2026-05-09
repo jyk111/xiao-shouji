@@ -52,6 +52,8 @@
 - `docs/gallery-design.md`：相册设计模式。记录相册视觉结构、交互规则、数据规则和后续扩展。
 - `docs/memo-plan.md`：备忘录模块需求文档。记录备忘录目标、数据结构、页面结构和实施顺序。
 - `docs/bilibili-plan.md`：B站模块需求文档。记录只读取 B站条目、视频流、详情页、搜索生成、查手机摘要和实施顺序。
+- `docs/life-system-framework.md`：小手机生活系统总框架。记录手机壳层、生活 App 层、生活事件层、角色记忆层和主动事件层；跨 App 改动先读这里。
+- `docs/work-log.md`：每次修改追加工作记录，写清楚范围、原因、实际内容、同步文档、验证和后续事项。
 
 ### `模块/`
 
@@ -110,7 +112,9 @@
 
 - 改 `src/App.tsx`：同步文件头函数列表，必要时同步本文件“当前真实入口地图”。
 - 改 `src/store.ts`：同步 persist version、迁移说明和状态字段说明。
-- 改微信：同步 `docs/wechat.md`。
+- 改具体模块：同步对应 `docs/*-plan.md` 或 `docs/wechat.md`。
+- 改生活事件、角色记忆、通知、锁屏或主动事件：同步 `docs/life-system-framework.md`。
+- 每次实际修改：追加 `docs/work-log.md`。
 - 新增/接入 `src/pages/*`：把占位说明改为真实职责，并在本文件登记入口。
 ## 2026-05-07 电话模块补充
 
