@@ -23,3 +23,12 @@
 - 文档：同步 `CLAUDE.md` 和 `PROJECT_OUTLINE.md` 的文档维护要求。
 - 验证：`npm run lint` 通过；`npm run build` 通过，保留 Vite chunk 体积提示。
 - 后续：下一轮如果开始实现，应先从生活事件结构或锁屏通知中心二选一写具体设计。
+
+## 2026-05-10 App 壳第一刀拆分
+
+- 范围：手机壳桌面 App 目录和 `src/App.tsx` 顶层依赖。
+- 原因：`src/App.tsx` 仍是巨型入口，后续锁屏、通知中心和生活事件接入前，需要先从低风险的纯目录数据开始拆。
+- 内容：新增 `src/shell/appCatalog.tsx`，把桌面分页图标和 Dock 图标从 `src/App.tsx` 抽出；新增 `src/shell/appCatalog.test.ts`，校验目录数量、分页、Dock 顺序和 screen 去重；`src/App.tsx` 改为从 shell catalog 导入目录数据。
+- 文档：新增 `docs/superpowers/plans/2026-05-10-app-shell-split.md`，同步 `PROJECT_OUTLINE.md`。
+- 验证：`npx tsx src/shell/appCatalog.test.ts` 通过；全部 `src/**/*.test.ts` 通过；`npm run lint` 通过；`npm run build` 通过，保留 Vite chunk 体积提示；源码中未发现 `crypto.randomUUID` / `randomUUID` 直调。
+- 后续：下一刀可拆 `FeatureScreen` 路由，或继续拆 `Desktop` / `AppIcon` / `Draggable` 到 `src/shell/`。

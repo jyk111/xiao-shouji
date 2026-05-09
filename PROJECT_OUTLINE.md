@@ -36,6 +36,8 @@
 - `src/xiaohongshu/types.ts`：小红书条目类型 `XiaohongshuNote` 和玩家形象 `XiaohongshuProfile`。
 - `src/xiaohongshu/xiaohongshuLogic.ts`：小红书条目归一化、玩家形象归一化、角色/世界书笔记生成、推荐/关注/附近/我的筛选、标签筛选和 AI 上下文摘要。
 - `src/bilibili/`：B站模块真实代码目录。`BilibiliScreen.tsx` 负责视频流、搜索和详情页；`bilibiliLogic.ts` 负责 B站-only fallback、模型 JSON 解析和外站过滤；`bilibiliTypes.ts` 维护 B站条目和搜索记录类型。
+- `src/shell/appCatalog.tsx`：手机壳桌面 App 目录。维护桌面分页图标、Dock 图标和 catalog 测试用 screen 列表；`src/App.tsx` 仍负责实际渲染。
+- `src/shell/appCatalog.test.ts`：桌面 App 目录结构测试，校验图标数量、分页、Dock 顺序和 screen 去重。
 - `src/components/WeChatLayout.tsx`：未来微信布局拆分占位；当前没有接入。
 - `src/pages/ChatsPage.tsx`：未来微信聊天列表页占位；当前真实函数是 `App.tsx` 里的 `WeChatChats`。
 - `src/pages/ContactsPage.tsx`：未来微信通讯录页占位；当前真实函数是 `App.tsx` 里的 `WeChatContacts`。
@@ -74,7 +76,7 @@
 ## 当前真实入口地图
 
 - App 壳：`src/App.tsx` -> `App`。
-- 桌面：`src/App.tsx` -> `Desktop`、`Draggable`、`CustomWidgetView`、`AppIcon`。
+- 桌面：`src/App.tsx` -> `Desktop`、`Draggable`、`CustomWidgetView`、`AppIcon`；桌面 App 目录来自 `src/shell/appCatalog.tsx`。
 - 功能分发：`src/App.tsx` -> `FeatureScreen`。
 - 微信容器：`src/App.tsx` -> `WeChatApp`。
 - 微信聊天列表：`src/App.tsx` -> `WeChatChats`。

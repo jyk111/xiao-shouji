@@ -6,7 +6,7 @@
  * delay, formatMessageTime, clampNumber,
  * CalendarScreen, GalleryScreen, ContactsScreen, SettingsScreen, ThemesScreen, VideoCallScreen.
  * State dependencies: useAppStore from src/store.ts; Character/Screen/ThemeType/CalendarEvent/GalleryPhoto types.
- * Utility dependencies: PhoneScreen from src/PhoneScreen.tsx, BilibiliScreen from src/bilibili/BilibiliScreen.tsx, speakWithConfiguredTts from src/tts.ts, parseCharacterCard from src/lib/charaParser.ts, cn/createId from src/lib/utils.ts.
+ * Utility dependencies: pageApps/dockApps from src/shell/appCatalog.tsx, PhoneScreen from src/PhoneScreen.tsx, BilibiliScreen from src/bilibili/BilibiliScreen.tsx, speakWithConfiguredTts from src/tts.ts, parseCharacterCard from src/lib/charaParser.ts, cn/createId from src/lib/utils.ts.
  * Styling dependencies: src/index.css owns theme variables, phone shell, WeChat, chat, desktop styles.
  * Maintenance note: this file is still the active UI entry; src/pages/* are placeholders until routed in.
  */
@@ -78,6 +78,7 @@ import { BilibiliScreen } from './bilibili/BilibiliScreen';
 import { XiaohongshuApp } from './xiaohongshu/XiaohongshuApp';
 import { buildXiaohongshuContext } from './xiaohongshu/xiaohongshuLogic';
 import type { XiaohongshuNote } from './xiaohongshu/types';
+import { dockApps, pageApps } from './shell/appCatalog';
 import { buildWeChatSystemPrompt, fallbackWeChatReply, parseWeChatReplyParts } from './wechat/ai/wechatAi';
 import type { WeChatAiParsedPart } from './wechat/ai/wechatAiMessages';
 import { WeChatChats } from './wechat/chats/WeChatChats';
@@ -98,24 +99,6 @@ import {
   theaterLengthLabels,
 } from './theaterLogic';
 
-const pageApps: Array<{ id: string; page: 0 | 1; screen: Screen; label: string; icon: React.ReactNode; color: string; x: number; y: number }> = [
-  { id: 'wechat', page: 0, screen: 'wechat', label: '微信', icon: <MessageCircle />, color: 'bg-[#dceecd]', x: 22, y: 22 },
-  { id: 'qq', page: 0, screen: 'qq', label: 'QQ', icon: <Bot />, color: 'bg-[#cfe5ef]', x: 106, y: 22 },
-  { id: 'gallery', page: 0, screen: 'gallery', label: '相册', icon: <ImageIcon />, color: 'bg-[#f4edbd]', x: 22, y: 126 },
-  { id: 'calendar', page: 0, screen: 'calendar', label: '日历', icon: <CalendarDays />, color: 'bg-white', x: 106, y: 126 },
-  { id: 'diary', page: 0, screen: 'diary', label: '日记', icon: <BookOpen />, color: 'bg-[#e9c4d5]', x: 44, y: 352 },
-  { id: 'memo', page: 0, screen: 'memo', label: '备忘录', icon: <FileText />, color: 'bg-[#efe7a9]', x: 134, y: 352 },
-  { id: 'peek', page: 0, screen: 'peek', label: '查手机', icon: <LockKeyhole />, color: 'bg-[#dceecd]', x: 224, y: 352 },
-  { id: 'xiaohongshu', page: 1, screen: 'xiaohongshu', label: '小红书', icon: <Wand2 />, color: 'bg-[#e9c4d5]', x: 24, y: 24 },
-  { id: 'bilibili', page: 1, screen: 'bilibili', label: 'B站', icon: <Play />, color: 'bg-[#cfe5ef]', x: 104, y: 24 },
-  { id: 'theater', page: 1, screen: 'theater', label: '小剧场', icon: <Clapperboard />, color: 'bg-[#efe7a9]', x: 184, y: 24 },
-  { id: 'music', page: 1, screen: 'music', label: '音乐', icon: <Music />, color: 'bg-[#dceecd]', x: 264, y: 24 },
-  { id: 'browser', page: 1, screen: 'browser', label: '浏览器', icon: <Search />, color: 'bg-[#cfe5ef]', x: 24, y: 132 },
-  { id: 'presets', page: 1, screen: 'presets', label: '预设', icon: <Shield />, color: 'bg-[#f4edbd]', x: 104, y: 132 },
-  { id: 'ai-context', page: 1, screen: 'ai-context', label: 'AI上下文', icon: <Sparkles />, color: 'bg-[#dceecd]', x: 184, y: 132 },
-  { id: 'logs', page: 1, screen: 'logs', label: '报错', icon: <FileText />, color: 'bg-[#ffd6d6]', x: 264, y: 132 },
-];
-
 const gothicDesktopPositions: Record<string, { x: number; y: number }> = {
   wechat: { x: 24, y: 72 },
   qq: { x: 108, y: 72 },
@@ -127,13 +110,6 @@ const gothicDesktopPositions: Record<string, { x: number; y: number }> = {
   'image-bed': { x: 198, y: 86 },
   'time-card': { x: 18, y: 270 },
 };
-
-const dockApps: Array<{ screen: Screen; label: string; icon: React.ReactNode; color: string }> = [
-  { screen: 'phone', label: '电话', icon: <Phone />, color: 'bg-[#dceecd]' },
-  { screen: 'settings', label: '设置', icon: <Settings />, color: 'bg-[#cfe5ef]' },
-  { screen: 'contacts', label: '通讯录', icon: <CircleUserRound />, color: 'bg-[#f4edbd]' },
-  { screen: 'themes', label: '主题', icon: <Palette />, color: 'bg-[#e9c4d5]' },
-];
 
 const themeOptions: Array<{ id: ThemeType; name: string; desc: string }> = [
   { id: 'pastel', name: '奶油手绘', desc: '粗描边、浅色块、正常手机桌面。' },
