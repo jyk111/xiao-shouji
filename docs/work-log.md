@@ -41,3 +41,39 @@
 - 文档：新增 `docs/superpowers/plans/2026-05-10-app-folder-layout.md`，同步 `PROJECT_OUTLINE.md`、`docs/wechat.md`、`docs/bilibili-plan.md` 和相关 `模块/*/README.md`。
 - 验证：`npx tsx src/apps/appsStructure.test.ts` 通过；全部 `src/**/*.test.ts` 通过；`npm run lint` 通过；`npm run build` 通过，保留 Vite chunk 体积提示；源码中未发现 `crypto.randomUUID` / `randomUUID` 直调。
 - 后续：下一轮拆未成型软件时，按同样规则建立 `src/apps/music/`、`src/apps/memo/`、`src/apps/qq/` 等目录，不再把软件代码直接放在 `src/` 根目录。
+
+## 2026-05-10 每个软件独立文件夹第二轮
+
+- 范围：继续整理 `src/App.tsx` 中残留的软件屏幕和 `src` 根目录小剧场逻辑。
+- 原因：用户要求本轮协调“每个软件一个文件夹”，且不改业务逻辑，只做目录整理、import 修正、测试修正和文档同步。
+- 内容：新增 `src/apps/theater/`、`src/apps/calendar/`、`src/apps/diary/`、`src/apps/memo/`、`src/apps/browser/`、`src/apps/qq/`、`src/apps/video/`、`src/apps/settings/`、`src/apps/themes/`、`src/apps/presets/`、`src/apps/logs/`、`src/apps/ai-context/`、`src/apps/contacts/`、`src/apps/shared/` 和 `src/apps/system/`；把小剧场、日历、日记、查手机、备忘录、浏览器、微信聊天/气泡、QQ入口、视频通话、设置/主题/预设/日志/AI上下文/通讯录入口从 `src/App.tsx` 拆出；把 `src/theaterLogic.ts` 和测试移动到 `src/apps/theater/`；更新相关 import 和 `src/apps/appsStructure.test.ts`。
+- 文档：同步 `PROJECT_OUTLINE.md` 和本工作记录；新增执行计划 `docs/superpowers/plans/2026-05-10-app-folder-layout-round2.md`。
+- 验证：`npx tsx src/apps/appsStructure.test.ts` 通过；全部 `src/**/*.test.ts` 通过，保留 zustand persist 在 Node 测试环境 storage unavailable 提示；`npm run lint` 通过；`npm run build` 通过，保留 Vite chunk 体积提示；源码中未发现 `crypto.randomUUID` / `randomUUID` 直调。
+- 后续：若后续要把 `src/apps/system/SystemScreens.tsx` 进一步拆成每个系统工具自己的完整实现，可以在不改行为的前提下继续细拆；本轮先保证所有入口都有独立 `src/apps/<app-name>/` 文件夹。
+
+## 2026-05-10 QQ 拆分前调研
+
+- 范围：只调研 QQ 模块入口、聊天复用关系和后续 `src/apps/qq/` 最小拆分边界。
+- 原因：用户要求先确认 QQ 是否仍复用 `ChatList` 或 `App.tsx` 内部逻辑，并且不要复制微信整套代码。
+- 内容：确认当前没有 `src/apps/qq/`；`src/shell/appCatalog.tsx` 只登记 QQ 桌面图标；`src/App.tsx` 的 `FeatureScreen` 对 `screen === "qq"` 直接渲染 `<ChatList channel={screen} />`；`ChatScreen`、`Bubble` 和 `src/store.ts` 的聊天 actions 仍由 `channel: "wechat" | "qq"` 共用。
+- 文档：更新 `模块/QQ/README.md`，写明 QQ 当前复用现状、不可复制微信代码的边界，以及下一步只抽 `QQApp` / `QQChatList` 的最小方案。
+- 验证：运行 `rg` 和分段读取确认 `src/App.tsx`、`src/store.ts`、`src/shell/appCatalog.tsx`、`src/apps/` 结构；本次未改业务代码，未运行 lint/build。
+- 后续：真正实现时先新增 `src/apps/qq/QQApp.tsx` 并只搬 QQ 列表入口，`ChatScreen`、`Bubble`、聊天 store actions 先保留在 `src/App.tsx` / `src/store.ts`。
+
+## 2026-05-10 音乐模块目录准备
+
+- 范围：音乐模块入口和 `src/apps/music/` 目录结构。
+- 原因：用户要求本轮只负责音乐模块，先确认 `MusicScreen` 是否仍在 `src/App.tsx`，如果已有则仅拆到 `src/apps/music/` 并保持行为不变。
+- 内容：确认 `MusicScreen` 已是完整音乐页而非占位；新增 `src/apps/music/MusicScreen.tsx`，把既有音乐 UI、搜索、歌单、历史、一起听、char 创作和唱歌/TTS 入口从 `src/App.tsx` 移入；`src/App.tsx` 改为 import 并在 `FeatureScreen` 中继续分发；更新 `src/apps/appsStructure.test.ts` 检查音乐目录。
+- 文档：同步 `PROJECT_OUTLINE.md`、`docs/music-plan.md`、`模块/音乐/README.md`。
+- 验证：`npx tsx src/apps/appsStructure.test.ts` 通过；`npm run lint` 通过；`npm run build` 通过，保留 Vite chunk 体积提示。
+- 后续：下一步音乐只做小拆分，优先抽无状态工具和子视图；不要在同一轮新增播放器状态或重做交互。
+
+## 2026-05-10 相册模块独立目录
+
+- 范围：只整理相册模块，新增 `src/apps/gallery/`，没有修改微信、日历、备忘录、音乐业务逻辑。
+- 原因：把 `GalleryScreen` 和相册 UI、照片分组/筛选/标签/可读范围相关逻辑从 `src/App.tsx` 移到相册自己的目录。
+- 内容：新增 `src/apps/gallery/GalleryScreen.tsx`、`src/apps/gallery/galleryLogic.ts`、`src/apps/gallery/galleryLogic.test.ts`；`src/App.tsx` 只保留 `GalleryScreen` import 和 `gallery` 路由；`src/apps/appsStructure.test.ts` 增加 gallery 目录校验；保持 `GalleryPhoto` 和 `galleryTags` 数据结构不变。
+- 文档：更新 `docs/gallery-design.md`、`模块/相册/README.md`、`PROJECT_OUTLINE.md`，并追加本记录。
+- 验证：`npx tsx src/apps/appsStructure.test.ts` 通过；`npx tsx src/apps/gallery/galleryLogic.test.ts` 通过；全量 `src/**/*.test.ts(x)` 通过；`npm run lint` 通过；`npm run build` 通过，保留 Vite chunk 体积提示。
+- 后续：相册后续新增功能继续落在 `src/apps/gallery/`，只有状态结构变化时再同步 `src/store.ts` persist migrate。

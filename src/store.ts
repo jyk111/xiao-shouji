@@ -11,7 +11,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { BilibiliSearchRecord, BilibiliVideoEntry } from './apps/bilibili/bilibiliTypes';
 import { createId } from './lib/utils';
-import type { TheaterLengthKey, TheaterStyleKey, TheaterTopicDraft } from './theaterLogic';
+import type { TheaterLengthKey, TheaterStyleKey, TheaterTopicDraft } from './apps/theater/theaterLogic';
 import { defaultTtsConfig, type TtsConfig } from './tts';
 import { normalizeXiaohongshuNotes, normalizeXiaohongshuProfile } from './apps/xiaohongshu/xiaohongshuLogic';
 import type { XiaohongshuNote, XiaohongshuProfile } from './apps/xiaohongshu/types';

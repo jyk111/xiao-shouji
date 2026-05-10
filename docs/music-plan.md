@@ -83,3 +83,10 @@ interface MusicListenRecord {
 ## 给下一个 AI 的说明
 
 做音乐时只动音乐相关内容，优先读本文件。不要把音乐做成营销页或说明页，第一屏必须是可用的音乐 App。风格要跟小手机当前主题一致，哥特主题下不要突然变成普通白色播放器。先保证本地数据结构、播放器 UI、歌单和历史能跑通，再接模型生成。不要依赖外部音乐平台 API；如果没有真实音频，就先用模拟播放状态和用户填入的音频地址。
+
+## 2026-05-10 目录拆分记录
+
+- 当前状态：`MusicScreen` 已不是占位页，原本仍在 `src/App.tsx` 内；本轮已拆到 `src/apps/music/MusicScreen.tsx`，`src/App.tsx` 仅保留 `FeatureScreen` 分发和全局音频节点。
+- 本轮边界：没有新增音乐状态，没有改播放器行为，没有实现新的曲库/歌单能力。
+- 当前结构方案：先以单文件 `MusicScreen.tsx` 承接既有 UI、外部搜索、歌单、历史、一起听、char 创作和唱歌/TTS 入口；后续再按风险把纯工具函数、搜索源、播放器视图、歌单视图和 char 创作视图拆成同目录子文件。
+- 下次拆分顺序建议：先提取 `musicHelpers.ts` / `musicApi.ts` 这类无 UI 工具，再拆 `MusicPlayerView`、`MusicLibraryView`、`MusicPlaylistView`、`MusicCharCreateView`；每一步都保持 store 字段和用户可见行为不变。
