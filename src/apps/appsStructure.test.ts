@@ -37,6 +37,9 @@ for (const appName of requiredApps) {
 }
 
 assert(existsSync(join(appsDir, 'wechat', 'ai', 'wechatAi.ts')), 'WeChat AI module must live under src/apps/wechat');
+assert(existsSync(join(appsDir, 'wechat', 'WeChatApp.tsx')), 'WeChat app shell must live under src/apps/wechat');
+assert(existsSync(join(appsDir, 'wechat', 'chat', 'ChatList.tsx')), 'Shared chat list must live under src/apps/wechat/chat');
+assert(existsSync(join(appsDir, 'wechat', 'chat', 'ChatScreen.tsx')), 'Shared chat screen must live under src/apps/wechat/chat');
 assert(existsSync(join(appsDir, 'bilibili', 'BilibiliScreen.tsx')), 'Bilibili screen must live under src/apps/bilibili');
 assert(existsSync(join(appsDir, 'xiaohongshu', 'XiaohongshuApp.tsx')), 'Xiaohongshu screen must live under src/apps/xiaohongshu');
 assert(existsSync(join(appsDir, 'phone', 'PhoneScreen.tsx')), 'Phone screen must live under src/apps/phone');

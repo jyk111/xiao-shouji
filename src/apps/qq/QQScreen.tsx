@@ -1,4 +1,4 @@
-import { ChatList } from '../wechat/WeChatApp';
+import { ChatList } from '../wechat/chat/ChatList';
 
 export function QQScreen() {
   return <ChatList channel="qq" />;

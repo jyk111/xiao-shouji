@@ -51,6 +51,15 @@
 - 验证：`npx tsx src/apps/appsStructure.test.ts` 通过；全部 `src/**/*.test.ts` 通过，保留 zustand persist 在 Node 测试环境 storage unavailable 提示；`npm run lint` 通过；`npm run build` 通过，保留 Vite chunk 体积提示；源码中未发现 `crypto.randomUUID` / `randomUUID` 直调。
 - 后续：若后续要把 `src/apps/system/SystemScreens.tsx` 进一步拆成每个系统工具自己的完整实现，可以在不改行为的前提下继续细拆；本轮先保证所有入口都有独立 `src/apps/<app-name>/` 文件夹。
 
+## 2026-05-10 微信聊天内部继续拆分
+
+- 范围：微信/QQ 共用聊天入口内部结构。
+- 原因：上一轮已经把微信整体移出 `src/App.tsx`，但 `src/apps/wechat/WeChatApp.tsx` 仍同时承担四页签外壳、聊天列表、聊天房间和消息气泡，后续微信优化前需要继续降耦合。
+- 内容：新增 `src/apps/wechat/chat/ChatList.tsx` 和 `src/apps/wechat/chat/ChatScreen.tsx`；`src/apps/wechat/WeChatApp.tsx` 只保留微信四页签外壳；`src/apps/qq/QQScreen.tsx` 改为复用 `src/apps/wechat/chat/ChatList.tsx`；`src/App.tsx` 改为从 `src/apps/wechat/chat/ChatScreen.tsx` 导入聊天房间；更新 `src/apps/appsStructure.test.ts`。
+- 文档：同步 `PROJECT_OUTLINE.md`、`docs/wechat.md` 和本工作记录。
+- 验证：后续统一跑结构测试、全部 `src/**/*.test.ts`、`npm run lint`、`npm run build` 和 randomUUID 检查。
+- 后续：可以继续把 `Bubble`、消息长按工具、生活卡片发送动作从 `ChatScreen.tsx` 内拆成更小文件，但不建议和新功能同一轮混做。
+
 ## 2026-05-10 QQ 拆分前调研
 
 - 范围：只调研 QQ 模块入口、聊天复用关系和后续 `src/apps/qq/` 最小拆分边界。

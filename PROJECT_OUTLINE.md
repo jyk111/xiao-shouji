@@ -31,6 +31,8 @@
 - `src/lib/utils.ts`：工具函数。`cn` 合并 className，`createId` 生成兼容 ID。
 - `src/lib/charaParser.ts`：酒馆/角色卡解析。负责 PNG/JSON 角色卡、头像提取和角色字段归一化。
 - `src/apps/`：每个真实手机软件的独立代码目录。软件自己的 UI、逻辑和测试优先放在 `src/apps/<软件名>/`，共享壳、状态、工具和全局样式仍留在 `src/` 对应公共目录。
+- `src/apps/wechat/WeChatApp.tsx`：微信四页签外壳，只负责切换聊天、通讯录、发现和我。
+- `src/apps/wechat/chat/`：通用聊天列表、聊天房间和消息气泡。QQ 入口当前复用这里的 `ChatList` / `ChatScreen` 能力。
 - `src/apps/wechat/ai/`：微信 AI 提示词、活人感规则、转账/红包/购物/表情动作解析和新手教程。
 - `src/apps/wechat/stickers/`：微信 emoji/sticker 风格表情包 starter manifest 和来源说明。
 - `src/apps/phone/PhoneScreen.tsx`：电话模块真实 UI。包含最近通话、角色拨号、呼叫中、来电中、通话中、通话详情、短口语电话 AI 回复和写入聊天记录按钮。
@@ -92,13 +94,13 @@
 - App 壳：`src/App.tsx` -> `App`。
 - 桌面：`src/App.tsx` -> `Desktop`、`Draggable`、`CustomWidgetView`、`AppIcon`；桌面 App 目录来自 `src/shell/appCatalog.tsx`。
 - 功能分发：`src/App.tsx` -> `FeatureScreen`。
-- 微信容器：`src/App.tsx` -> `src/apps/wechat/WeChatApp.tsx` -> `WeChatApp`。
+- 微信容器：`src/App.tsx` -> `src/apps/wechat/WeChatApp.tsx` -> `WeChatApp`，只负责微信四页签。
 - 微信聊天列表：`src/apps/wechat/chats/WeChatChats.tsx` -> `WeChatChats`。
 - 微信通讯录/导入酒馆卡/群聊/标签：`src/apps/wechat/contacts/WeChatContacts.tsx` -> `WeChatContacts`，导入解析依赖 `src/lib/charaParser.ts`。
 - 微信发现入口/朋友圈/照片墙/表情包库：`src/apps/wechat/discover/WeChatDiscover.tsx` -> `WeChatDiscover`，内部用 `discoverView` 切换入口页和详情页。
 - 微信我：`src/apps/wechat/me/WeChatMe.tsx` -> `WeChatMe`。
-- 聊天房间/连续发送/图片发送/表情注释/人设世界书上下文/上下文消息数/接口失败重试：`src/apps/wechat/WeChatApp.tsx` -> `ChatScreen`。
-- 聊天气泡/多气泡拆分/图片/语音条/转写/播放中状态：`src/apps/wechat/WeChatApp.tsx` -> `Bubble` 和 `splitAssistantBubbles`。
+- 聊天房间/连续发送/图片发送/表情注释/人设世界书上下文/上下文消息数/接口失败重试：`src/apps/wechat/chat/ChatScreen.tsx` -> `ChatScreen`。
+- 聊天气泡/多气泡拆分/图片/语音条/转写/播放中状态：`src/apps/wechat/chat/ChatScreen.tsx` -> `Bubble` 和 `splitAssistantBubbles`。
 - 微信聊天预设/导入酒馆预设：`src/App.tsx` -> `WeChatMe` 的设置视图；解析函数为 `parseSillyTavernPreset`，状态在 `src/store.ts` 的 `chatPreset*` 字段。
 - 微信生活化 AI：`src/apps/wechat/ai/` -> `buildWeChatSystemPrompt`、`parseWeChatReplyParts`；`ChatScreen` 负责把 AI 动作转为转账、红包、购物、表情包消息。
 - 微信群聊：`src/App.tsx` -> `WeChatChats` 和 `WeChatContacts`；状态在 `src/store.ts` 的 `groupChats`，聊天复用 `chatSessions`，群头像由 `WeChatGroupAvatar` 拼成员头像，AI 回复按成员逐个发言。

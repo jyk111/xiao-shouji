@@ -99,7 +99,9 @@ Maintenance note: update this file whenever WeChat UI/state/import behavior chan
 
 ## 重要文件
 
-- `src/apps/wechat/WeChatApp.tsx`：微信外壳、聊天主界面、气泡、语音条/转写/TTS；QQ 当前也复用其中的通用聊天房间能力。
+- `src/apps/wechat/WeChatApp.tsx`：微信四页签外壳。
+- `src/apps/wechat/chat/ChatList.tsx`：微信/QQ 共用聊天列表入口。
+- `src/apps/wechat/chat/ChatScreen.tsx`：微信/QQ 共用聊天房间、气泡、语音条/转写/TTS。
 - `src/apps/wechat/chats/WeChatChats.tsx`：微信聊天列表。
 - `src/apps/wechat/contacts/WeChatContacts.tsx`：微信通讯录、导入角色卡、群聊、标签。
 - `src/apps/wechat/discover/WeChatDiscover.tsx`：发现页、朋友圈、照片墙、表情包。
@@ -118,4 +120,4 @@ Maintenance note: update this file whenever WeChat UI/state/import behavior chan
 - 给聊天输入栏增加更多面板和相册选择。
 - 群聊下一步接入真正的群成员消息上下文和成员管理。
 - 接下来可做转发、多选、群聊房间、图片理解、收藏分类和角色独立预设。
-- 后续如继续细拆，可把 `src/apps/wechat/WeChatApp.tsx` 内的 `ChatScreen` 和 `Bubble` 再拆到 `chat/` 子目录。
+- 后续如继续细拆，可把 `src/apps/wechat/chat/ChatScreen.tsx` 内的 `Bubble` 和消息动作再拆到更小文件。
