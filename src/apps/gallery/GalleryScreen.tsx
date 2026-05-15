@@ -1,7 +1,10 @@
 import {
   ChevronLeft,
+  ChevronRight,
+  Check,
   CircleUserRound,
   FileText,
+  FolderOpen,
   Grid2X2,
   Image as ImageIcon,
   ImagePlus,
@@ -22,6 +25,7 @@ import {
   buildGalleryReviewContent,
   filterGalleryPhotos,
   galleryAlbums,
+  gallerySources,
   groupGalleryPhotosByDate,
   normalizeGalleryTag,
   toggleGalleryTag,
@@ -95,9 +99,51 @@ function Empty({ text }: { text: string }) {
   return <p className="rounded-2xl bg-white/60 p-4 text-center text-sm font-black opacity-60">{text}</p>;
 }
 
+type EntryCardProps = {
+  icon: React.ReactNode;
+  title: string;
+  subtitle: string;
+  count?: number;
+  preview?: string;
+  onClick: () => void;
+};
+
+const EntryCard: React.FC<EntryCardProps> = ({
+  icon,
+  title,
+  subtitle,
+  count,
+  preview,
+  onClick,
+}) => {
+  return (
+    <button onClick={onClick} className="gallery-entry-card">
+      <div className="gallery-entry-icon">{React.cloneElement(icon as React.ReactElement<{ className?: string }>, { className: 'h-5 w-5' })}</div>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-base font-black">{title}</p>
+        <p className="mt-1 line-clamp-2 text-xs font-bold leading-5 opacity-60">{subtitle}</p>
+      </div>
+      {preview ? <img src={preview} alt="" className="gallery-entry-preview" /> : <span className="text-sm font-black opacity-55">{count ?? 0}</span>}
+      <ChevronRight className="h-5 w-5 shrink-0 opacity-55" />
+    </button>
+  );
+};
+
 function formatDateLabel(time: number) {
   const date = new Date(time);
   return `${date.getMonth() + 1}月${date.getDate()}日`;
+}
+
+type GalleryCollection = {
+  title: string;
+  subtitle: string;
+  tab: GalleryTab;
+  albumFilter: GalleryAlbumFilter;
+  sourceFilter?: GalleryPhotoSource;
+};
+
+function sourceLabel(source?: GalleryPhotoSource) {
+  return gallerySources.find((item) => item.source === source)?.label || '其它来源';
 }
 
 export function GalleryScreen() {
@@ -106,44 +152,93 @@ export function GalleryScreen() {
     galleryTags,
     imageBed,
     wechatPhotos,
+    wallpaper,
     addGalleryPhoto,
     updateGalleryPhoto,
     addGalleryPhotoReview,
     deleteGalleryPhoto,
     toggleGalleryPhotoFavorite,
+    setWallpaper,
     addGalleryTag,
     characters,
   } = useAppStore();
   const inputRef = useRef<HTMLInputElement>(null);
-  const [tab, setTab] = useState<GalleryTab>('all');
-  const [albumFilter, setAlbumFilter] = useState<GalleryAlbumFilter>('全部');
-  const [view, setView] = useState<GalleryView>('grid');
+  const [view, setView] = useState<GalleryView>('home');
+  const [collection, setCollection] = useState<GalleryCollection>({
+    title: '全部照片',
+    subtitle: '按时间整理所有可见照片',
+    tab: 'all',
+    albumFilter: '全部',
+  });
   const [activeId, setActiveId] = useState<string | null>(null);
   const [reviewDraft, setReviewDraft] = useState('');
   const [newTag, setNewTag] = useState('');
+  const [uploadAlbum, setUploadAlbum] = useState<GalleryPhoto['album']>('生活');
+  const [uploadTag, setUploadTag] = useState('日常');
+  const [status, setStatus] = useState('');
   const activePhoto = galleryPhotos.find((photo) => photo.id === activeId);
-  const visiblePhotos = filterGalleryPhotos(galleryPhotos, { tab, albumFilter });
+  const visiblePhotos = filterGalleryPhotos(galleryPhotos, { tab: collection.tab, albumFilter: collection.albumFilter })
+    .filter((photo) => !collection.sourceFilter || photo.source === collection.sourceFilter);
   const groupedPhotos = groupGalleryPhotosByDate(visiblePhotos, formatDateLabel);
+  const visibleAllCount = filterGalleryPhotos(galleryPhotos, { tab: 'all', albumFilter: '全部' }).length;
+  const sortedPhotos = [...galleryPhotos].sort((a, b) => b.createdAt - a.createdAt);
+  const countPhotos = (predicate: (photo: GalleryPhoto) => boolean) => galleryPhotos.filter(predicate).length;
+  const previewPhoto = (predicate: (photo: GalleryPhoto) => boolean) => sortedPhotos.find(predicate)?.url;
 
-  const addPhotoUrl = (url: string, source: GalleryPhotoSource, title = '新照片', createdAt = Date.now()) => {
-    const id = addGalleryPhoto(buildGalleryPhotoDraft({ url, source, title, createdAt }));
-    setActiveId(id);
-    setView('detail');
+  const openCollection = (next: GalleryCollection) => {
+    setCollection(next);
+    setView('collection');
+  };
+
+  const addPhotoUrl = (
+    url: string,
+    source: GalleryPhotoSource,
+    title = '新照片',
+    createdAt = Date.now(),
+    options: { openDetail?: boolean; album?: GalleryPhoto['album']; tags?: string[] } = {},
+  ) => {
+    const draft = buildGalleryPhotoDraft({ url, source, title, createdAt });
+    const id = addGalleryPhoto({
+      ...draft,
+      album: options.album || draft.album,
+      hidden: options.album === '隐藏' ? true : draft.hidden,
+      tags: Array.from(new Set([...(draft.tags || []), ...(options.tags || []).map(normalizeGalleryTag).filter(Boolean)])),
+    });
+    if (options.openDetail !== false) {
+      setActiveId(id);
+      setView('detail');
+    }
+    return id;
   };
 
   const uploadPhotos = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files: File[] = Array.from(event.target.files || []);
+    const tag = normalizeGalleryTag(uploadTag);
+    if (tag) addGalleryTag(tag);
     files.forEach((file) => {
       const reader = new FileReader();
-      reader.onload = () => addPhotoUrl(reader.result as string, 'upload', file.name.replace(/\.[^.]+$/, '') || '新照片', file.lastModified || Date.now());
+      reader.onload = () => addPhotoUrl(reader.result as string, 'upload', file.name.replace(/\.[^.]+$/, '') || '新照片', file.lastModified || Date.now(), {
+        openDetail: false,
+        album: uploadAlbum,
+        tags: tag ? [tag] : [],
+      });
       reader.readAsDataURL(file);
     });
+    if (files.length > 0) {
+      setStatus(`已加入 ${files.length} 张照片：${uploadAlbum}${tag ? ` · ${tag}` : ''}`);
+      openCollection({ title: uploadAlbum, subtitle: `${uploadAlbum}相簿`, tab: uploadAlbum === '隐藏' ? 'hidden' : 'all', albumFilter: uploadAlbum });
+    }
     event.target.value = '';
   };
 
   const importWechatPhoto = (url: string) => {
-    const exists = galleryPhotos.some((photo) => photo.url === url);
-    if (!exists) addPhotoUrl(url, 'wechat', '微信照片');
+    const existing = galleryPhotos.find((photo) => photo.url === url);
+    if (existing) {
+      setActiveId(existing.id);
+      setView('detail');
+      return;
+    }
+    addPhotoUrl(url, 'wechat', '微信照片');
   };
 
   const generatePhotoReview = () => {
@@ -171,10 +266,32 @@ export function GalleryScreen() {
     setNewTag('');
   };
 
+  const photoGrid = visiblePhotos.length > 0 ? (
+    <div className="grid gap-4">
+      {groupedPhotos.map((group) => (
+        <div key={group.day}>
+          <p className="mb-2 text-sm font-black opacity-60">{group.day}</p>
+          <div className="grid grid-cols-3 gap-2">
+            {group.photos.map((photo) => (
+              <button key={photo.id} onClick={() => { setActiveId(photo.id); setView('detail'); }} className="relative aspect-square overflow-hidden rounded-[18px] border-[3px] border-[#111] bg-white">
+                <img src={photo.url} alt={photo.title} className="h-full w-full object-cover" />
+                {photo.favorite && <Star className="absolute right-1 top-1 h-4 w-4 fill-[#fff0b8] text-[#111]" />}
+                {photo.hidden && <LockKeyhole className="absolute bottom-1 right-1 h-4 w-4 rounded-full bg-white p-0.5 text-[#111]" />}
+                {photo.readableByChar && <MessageCircle className="absolute bottom-1 left-1 h-4 w-4 rounded-full bg-white p-0.5 text-[#111]" />}
+              </button>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  ) : (
+    <Empty text="这里还没有照片。" />
+  );
+
   if (view === 'detail' && activePhoto) {
     return (
       <section className="gallery-screen h-full overflow-y-auto pb-8">
-        <Header title="照片" subtitle={formatDateLabel(activePhoto.createdAt)} onBack={() => setView('grid')} />
+        <Header title="照片" subtitle={`${formatDateLabel(activePhoto.createdAt)} · ${activePhoto.album} · ${sourceLabel(activePhoto.source)}`} onBack={() => setView('collection')} />
         <Panel className="overflow-hidden p-0">
           <img src={activePhoto.url} alt={activePhoto.title} className="max-h-[430px] w-full object-cover" />
         </Panel>
@@ -236,7 +353,17 @@ export function GalleryScreen() {
               })}
             </div>
           )}
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 gap-3">
+            <button onClick={() => setWallpaper(activePhoto.url)} className={cn('fetch-button', wallpaper === activePhoto.url && 'bg-[#dceecd]')}>
+              <ImageIcon className="h-5 w-5" />
+              <span>{wallpaper === activePhoto.url ? '当前锁屏' : '设为锁屏'}</span>
+            </button>
+            <button onClick={() => setWallpaper(null)} className="fetch-button">
+              <LockKeyhole className="h-5 w-5" />
+              <span>默认锁屏</span>
+            </button>
+          </div>
+          <div className="mt-3 grid grid-cols-3 gap-3">
             <button onClick={() => toggleGalleryPhotoFavorite(activePhoto.id)} className={cn('fetch-button', activePhoto.favorite && 'bg-[#fff0b8]')}>
               <Star className={cn('h-5 w-5', activePhoto.favorite && 'fill-[#111]')} />
             </button>
@@ -247,7 +374,7 @@ export function GalleryScreen() {
               <LockKeyhole className="h-5 w-5" />
             </button>
           </div>
-          <button onClick={() => { deleteGalleryPhoto(activePhoto.id); setActiveId(null); setView('grid'); }} className="fetch-button mt-3 bg-[#ffd6d6]">
+          <button onClick={() => { deleteGalleryPhoto(activePhoto.id); setActiveId(null); setView('collection'); }} className="fetch-button mt-3 bg-[#ffd6d6]">
             <Trash2 className="h-5 w-5" />
           </button>
         </Panel>
@@ -255,78 +382,97 @@ export function GalleryScreen() {
     );
   }
 
+  if (view === 'collection') {
+    return (
+      <section className="gallery-screen h-full overflow-y-auto pb-8">
+        <Header title={collection.title} subtitle={`${visiblePhotos.length} 张 · ${collection.subtitle}`} onBack={() => setView('home')} onSave={() => inputRef.current?.click()} saveLabel="上传" />
+        <input ref={inputRef} type="file" accept="image/*" multiple onChange={uploadPhotos} className="hidden" />
+        <Panel className="p-4">{photoGrid}</Panel>
+      </section>
+    );
+  }
+
+  if (view === 'imports') {
+    return (
+      <section className="gallery-screen h-full overflow-y-auto pb-8">
+        <Header title="导入照片" subtitle="从其它软件同步进相册" onBack={() => setView('home')} onSave={() => inputRef.current?.click()} saveLabel="上传" />
+        <input ref={inputRef} type="file" accept="image/*" multiple onChange={uploadPhotos} className="hidden" />
+        <Panel>
+          {imageBed ? (
+            <button onClick={() => addPhotoUrl(imageBed, 'image-bed', '图床照片')} className="gallery-import-row">
+              <img src={imageBed} alt="图床照片" className="h-16 w-16 rounded-2xl object-cover" />
+              <span className="min-w-0 flex-1 text-sm font-black">导入图床照片，之后可设锁屏、给 char 看或给其它软件选用。</span>
+              <ChevronRight className="h-5 w-5 opacity-55" />
+            </button>
+          ) : (
+            <Empty text="图床还没有可导入的照片。" />
+          )}
+          {wechatPhotos.slice(0, 12).map((url) => (
+            <button key={url} onClick={() => importWechatPhoto(url)} className="gallery-import-row mt-3">
+              <img src={url} alt="微信照片" className="h-16 w-16 rounded-2xl object-cover" />
+              <span className="min-w-0 flex-1 text-sm font-black">导入微信照片墙，导入后会进入“聊天/微信照片墙”来源。</span>
+              <ChevronRight className="h-5 w-5 opacity-55" />
+            </button>
+          ))}
+          {!imageBed && wechatPhotos.length === 0 && <p className="mt-3 text-center text-sm font-black opacity-55">暂时没有来自微信或图床的图片。</p>}
+        </Panel>
+      </section>
+    );
+  }
+
   return (
     <section className="gallery-screen h-full overflow-y-auto pb-8">
-      <Header
-        title="相册"
-        subtitle="按日期整理照片，点选标签"
-        onSave={() => inputRef.current?.click()}
-        saveLabel="上传"
-        tabs={
-          <>
-            <Pill active={tab === 'all'} icon={<ImageIcon />} label="全部" onClick={() => setTab('all')} />
-            <Pill active={tab === 'favorites'} icon={<Star />} label="收藏" onClick={() => setTab('favorites')} />
-            <Pill active={tab === 'hidden'} icon={<LockKeyhole />} label="隐藏" onClick={() => setTab('hidden')} />
-            <Pill active={tab === 'wechat'} icon={<MessageCircle />} label="微信" onClick={() => setTab('wechat')} />
-          </>
-        }
-      />
+      <Header title="相册" subtitle="每个入口都会打开独立页面" onSave={() => inputRef.current?.click()} saveLabel="上传" />
       <input ref={inputRef} type="file" accept="image/*" multiple onChange={uploadPhotos} className="hidden" />
       <Panel>
-        <button onClick={() => inputRef.current?.click()} className="fetch-button">
+        <p className="mb-3 text-lg font-black">导入到相册</p>
+        <div className="grid grid-cols-2 gap-3">
+          <Field icon={<FolderOpen />} label="相簿">
+            <select value={uploadAlbum} onChange={(event) => setUploadAlbum(event.target.value as GalleryPhoto['album'])} className="hand-input w-full">
+              {galleryAlbums.map((album) => <option key={album} value={album}>{album}</option>)}
+            </select>
+          </Field>
+          <Field icon={<Tag />} label="标签">
+            <input value={uploadTag} onChange={(event) => setUploadTag(event.target.value)} className="hand-input w-full" placeholder="例如：旅行" />
+          </Field>
+        </div>
+        <button onClick={() => inputRef.current?.click()} className="fetch-button mt-3">
           <ImagePlus className="h-5 w-5" />
-          上传照片
+          选择照片
         </button>
-        <p className="mt-3 text-sm font-bold leading-6 opacity-65">照片会自动记录日期。上传后点进照片，像现实相册一样点选标签，也可以创建新标签。</p>
+        {status && <p className="mt-3 flex items-center gap-2 text-sm font-black opacity-70"><Check className="h-4 w-4" />{status}</p>}
+        <p className="mt-3 text-sm font-bold leading-6 opacity-65">上传只做一件事：选相簿、写一个标签、加入照片库。要改锁屏、给 char 看或写备注时，再点进单张照片。</p>
       </Panel>
       <Panel>
-        <div className="flex gap-2 overflow-x-auto pb-1">
-          <Pill active={albumFilter === '全部'} icon={<Grid2X2 />} label="全部相簿" onClick={() => setAlbumFilter('全部')} />
-          {galleryAlbums.map((album) => (
-            <Pill key={album} active={albumFilter === album} icon={album === '隐藏' ? <LockKeyhole /> : <ImageIcon />} label={album} onClick={() => setAlbumFilter(album)} />
-          ))}
+        <p className="mb-3 text-lg font-black">快速入口</p>
+        <div className="grid gap-3">
+          <EntryCard icon={<ImageIcon />} title="全部照片" subtitle="不包含隐藏照片，适合日常整理。" count={visibleAllCount} preview={previewPhoto((photo) => !photo.hidden)} onClick={() => openCollection({ title: '全部照片', subtitle: '按时间整理所有可见照片', tab: 'all', albumFilter: '全部' })} />
+          <EntryCard icon={<Star />} title="收藏" subtitle="被标星的照片会集中在这里。" count={countPhotos((photo) => Boolean(photo.favorite))} preview={previewPhoto((photo) => Boolean(photo.favorite))} onClick={() => openCollection({ title: '收藏', subtitle: '所有已收藏照片', tab: 'favorites', albumFilter: '全部' })} />
+          <EntryCard icon={<LockKeyhole />} title="隐藏" subtitle="隐藏照片默认不会给 char 读取。" count={countPhotos((photo) => Boolean(photo.hidden) || photo.album === '隐藏')} preview={previewPhoto((photo) => Boolean(photo.hidden) || photo.album === '隐藏')} onClick={() => openCollection({ title: '隐藏', subtitle: '隐藏相册内容', tab: 'hidden', albumFilter: '全部' })} />
+          <EntryCard icon={<MessageCircle />} title="微信与聊天" subtitle="微信照片墙和聊天生图统一入口。" count={countPhotos((photo) => photo.source === 'wechat' || photo.source === 'chat' || photo.album === '聊天')} preview={previewPhoto((photo) => photo.source === 'wechat' || photo.source === 'chat' || photo.album === '聊天')} onClick={() => openCollection({ title: '微信与聊天', subtitle: '来自微信照片墙和聊天图片', tab: 'wechat', albumFilter: '全部' })} />
+          <EntryCard icon={<ImagePlus />} title="导入区" subtitle="从图床、微信照片墙同步照片。" count={(imageBed ? 1 : 0) + wechatPhotos.length} preview={imageBed || wechatPhotos[0]} onClick={() => setView('imports')} />
         </div>
       </Panel>
-      <Panel className="p-4">
-        {visiblePhotos.length > 0 ? (
-          <div className="grid gap-4">
-            {groupedPhotos.map((group) => (
-              <div key={group.day}>
-                <p className="mb-2 text-sm font-black opacity-60">{group.day}</p>
-                <div className="grid grid-cols-3 gap-2">
-                  {group.photos.map((photo) => (
-                    <button key={photo.id} onClick={() => { setActiveId(photo.id); setView('detail'); }} className="relative aspect-square overflow-hidden rounded-[18px] border-[3px] border-[#111] bg-white">
-                      <img src={photo.url} alt={photo.title} className="h-full w-full object-cover" />
-                      {photo.favorite && <Star className="absolute right-1 top-1 h-4 w-4 fill-[#fff0b8] text-[#111]" />}
-                      {photo.hidden && <LockKeyhole className="absolute bottom-1 right-1 h-4 w-4 rounded-full bg-white p-0.5 text-[#111]" />}
-                      {photo.readableByChar && <MessageCircle className="absolute bottom-1 left-1 h-4 w-4 rounded-full bg-white p-0.5 text-[#111]" />}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <Empty text="这里还没有照片。" />
-        )}
+      <Panel>
+        <p className="mb-3 text-lg font-black">相簿</p>
+        <div className="grid gap-3">
+          {galleryAlbums.map((album) => {
+            const isHidden = album === '隐藏';
+            const albumCount = countPhotos((photo) => photo.album === album && (isHidden || !photo.hidden));
+            return (
+              <EntryCard
+                key={album}
+                icon={isHidden ? <LockKeyhole /> : <FolderOpen />}
+                title={album}
+                subtitle={`进入${album}相簿单独整理。`}
+                count={albumCount}
+                preview={previewPhoto((photo) => photo.album === album && (isHidden || !photo.hidden))}
+                onClick={() => openCollection({ title: album, subtitle: `${album}相簿`, tab: isHidden ? 'hidden' : 'all', albumFilter: album })}
+              />
+            );
+          })}
+        </div>
       </Panel>
-      {(imageBed || wechatPhotos.length > 0) && (
-        <Panel>
-          <p className="text-lg font-black">可导入</p>
-          {imageBed && (
-            <button onClick={() => addPhotoUrl(imageBed, 'image-bed', '图床照片')} className="mt-3 flex w-full items-center gap-3 rounded-2xl bg-white/70 p-3 text-left">
-              <img src={imageBed} alt="图床照片" className="h-14 w-14 rounded-2xl object-cover" />
-              <span className="text-sm font-black">导入图床照片，继续点选标签</span>
-            </button>
-          )}
-          {wechatPhotos.slice(0, 6).map((url) => (
-            <button key={url} onClick={() => importWechatPhoto(url)} className="mt-3 flex w-full items-center gap-3 rounded-2xl bg-white/70 p-3 text-left">
-              <img src={url} alt="微信照片" className="h-14 w-14 rounded-2xl object-cover" />
-              <span className="text-sm font-black">导入微信照片墙，继续点选标签</span>
-            </button>
-          ))}
-        </Panel>
-      )}
     </section>
   );
 }

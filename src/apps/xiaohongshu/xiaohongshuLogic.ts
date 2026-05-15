@@ -34,6 +34,7 @@ type GenerateInput = {
   userProfile: XiaohongshuProfile;
   browserWorldBook?: string;
   galleryPhotos?: GalleryPhotoLike[];
+  presetPrompt?: string;
   now?: number;
 };
 
@@ -162,10 +163,12 @@ export function buildGeneratedXiaohongshuNotes({
   userProfile,
   browserWorldBook = '',
   galleryPhotos = [],
+  presetPrompt = '',
   now = Date.now(),
 }: GenerateInput): XiaohongshuNote[] {
   const profile = normalizeXiaohongshuProfile(userProfile);
   const worldHint = summarize(browserWorldBook.replace(/^世界书[:：]\s*/, ''), 90);
+  const presetHint = summarize(presetPrompt, 70);
   const photos = galleryPool(galleryPhotos);
   const notes: XiaohongshuNote[] = [];
   const topicPool = [
@@ -204,6 +207,7 @@ export function buildGeneratedXiaohongshuNotes({
         character.description ? summarize(character.description, 44) : `${character.name}今天随手记录了一点生活。`,
         character.personality ? `文字气质偏${summarize(character.personality, 28)}，像本人会发的碎碎念。` : '',
         world ? `背景里带到：${world}` : '',
+        presetHint ? `发布风格：${presetHint}` : '',
         profile.styleTags.length > 0 ? `刷到${profile.displayName}常看的 #${profile.styleTags[0]}，顺手也记了一笔。` : '',
       ].filter(Boolean).join('\n'),
       tags: Array.from(new Set([tag, ...profile.styleTags.slice(0, 2), ...(photo?.tags.slice(0, 1) || [])])),
@@ -237,6 +241,7 @@ export function buildGeneratedXiaohongshuNotes({
       title: topic,
       content: [
         localHint,
+        presetHint ? `这条内容按「${presetHint}」的方向写。` : '',
         pickFrom(seed + 5, [
           '评论区已经有人在问地址了，先收藏一下。',
           '没有很用力拍，但这种随手感反而刚刚好。',

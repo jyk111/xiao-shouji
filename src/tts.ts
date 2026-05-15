@@ -1,9 +1,9 @@
 /**
- * TTS provider helpers for browser, local HTTP, OpenAI, and Gemini speech.
+ * TTS provider helpers for browser, local HTTP, OpenAI, Gemini, and MiniMax speech.
  * Main functions: buildExternalTtsRequest, speakWithConfiguredTts, speakWithBrowserTts.
  * Maintenance note: keep provider-specific request shapes here instead of spreading them through App.tsx.
  */
-export type TtsProvider = 'browser' | 'local' | 'openai' | 'gemini';
+export type TtsProvider = 'browser' | 'local' | 'openai' | 'gemini' | 'minimax';
 
 export interface TtsConfig {
   provider: TtsProvider;
@@ -21,7 +21,7 @@ export const defaultTtsConfig: TtsConfig = {
   voiceId: 'alloy',
 };
 
-export type TtsResponseType = 'auto' | 'audio' | 'gemini-json';
+export type TtsResponseType = 'auto' | 'audio' | 'gemini-json' | 'minimax-json';
 
 export interface BuiltTtsRequest {
   url: string;
@@ -40,6 +40,14 @@ function normalizeOpenAiBaseUrl(url: string) {
 
 function normalizeGeminiBaseUrl(url: string) {
   return trimSlash(url) || 'https://generativelanguage.googleapis.com/v1beta';
+}
+
+function normalizeMiniMaxTtsUrl(url: string) {
+  const base = trimSlash(url);
+  if (!base) return 'https://api.minimax.io/v1/t2a_v2';
+  if (/\/v1\/t2a_v2$/i.test(base)) return base;
+  if (base.endsWith('/v1')) return `${base}/t2a_v2`;
+  return `${base}/v1/t2a_v2`;
 }
 
 export function buildExternalTtsRequest(config: TtsConfig, text: string): BuiltTtsRequest | null {
@@ -89,6 +97,36 @@ export function buildExternalTtsRequest(config: TtsConfig, text: string): BuiltT
       },
     };
   }
+  if (config.provider === 'minimax') {
+    return {
+      url: normalizeMiniMaxTtsUrl(config.baseUrl),
+      responseType: 'minimax-json',
+      init: {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(config.apiKey.trim() ? { Authorization: `Bearer ${config.apiKey.trim()}` } : {}),
+        },
+        body: JSON.stringify({
+          model: config.model.trim() || 'speech-2.8-hd',
+          text: input,
+          stream: false,
+          voice_setting: {
+            voice_id: config.voiceId.trim() || 'female-shaonv',
+            speed: 1,
+            vol: 1,
+            pitch: 0,
+          },
+          audio_setting: {
+            sample_rate: 32000,
+            bitrate: 128000,
+            format: 'mp3',
+            channel: 1,
+          },
+        }),
+      },
+    };
+  }
   return {
     url: config.baseUrl.trim(),
     responseType: 'auto',
@@ -121,6 +159,15 @@ function base64ToBlob(base64: string, mimeType: string) {
     bytes[index] = binary.charCodeAt(index);
   }
   return new Blob([bytes], { type: mimeType || 'audio/wav' });
+}
+
+function hexToBlob(hex: string, mimeType: string) {
+  const clean = hex.trim().replace(/^0x/i, '');
+  const bytes = new Uint8Array(clean.length / 2);
+  for (let index = 0; index < clean.length; index += 2) {
+    bytes[index / 2] = Number.parseInt(clean.slice(index, index + 2), 16);
+  }
+  return new Blob([bytes], { type: mimeType || 'audio/mpeg' });
 }
 
 function playAudioBlob(blob: Blob) {
@@ -164,6 +211,29 @@ async function playJsonAudio(data: unknown) {
   return playAudioBlob(base64ToBlob(base64, mimeType));
 }
 
+async function playMiniMaxJsonAudio(data: unknown) {
+  const value = data as {
+    data?: {
+      audio?: string;
+      status?: number;
+    };
+    trace_id?: string;
+    base_resp?: {
+      status_code?: number;
+      status_msg?: string;
+    };
+  };
+  const statusCode = value.base_resp?.status_code;
+  if (typeof statusCode === 'number' && statusCode !== 0) {
+    throw new Error(value.base_resp?.status_msg || `MiniMax TTS 失败：${statusCode}`);
+  }
+  const audioHex = value.data?.audio;
+  if (!audioHex) {
+    throw new Error(value.base_resp?.status_msg || 'MiniMax TTS 没有返回可播放音频。');
+  }
+  return playAudioBlob(hexToBlob(audioHex, 'audio/mpeg'));
+}
+
 export async function speakWithConfiguredTts(text: string, config: TtsConfig) {
   if (config.provider === 'browser') {
     speakWithBrowserTts(text);
@@ -177,6 +247,10 @@ export async function speakWithConfiguredTts(text: string, config: TtsConfig) {
   const contentType = response.headers.get('content-type') || '';
   if (request.responseType === 'audio' || contentType.startsWith('audio/')) {
     await playAudioBlob(await response.blob());
+    return;
+  }
+  if (request.responseType === 'minimax-json') {
+    await playMiniMaxJsonAudio(await response.json());
     return;
   }
   await playJsonAudio(await response.json());

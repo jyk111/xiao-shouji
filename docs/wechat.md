@@ -11,14 +11,21 @@ Maintenance note: update this file whenever WeChat UI/state/import behavior chan
 
 - 微信入口位于桌面 app，内部保留 4 个底部页签：微信、通讯录、发现、我。
 - 微信聊天列表和通讯录都直接读取全局 `characters`，导入角色卡后会同步出现在微信聊天列表和微信通讯录。
-- 聊天主界面支持文字消息、图片消息、带描述的表情包消息、语音条消息、浏览器 TTS 播放、长按/右键/按钮查看语音转写。
+- 聊天主界面支持文字消息、图片消息、带描述的表情包消息、语音条消息、浏览器 TTS 播放、语音未听红点、长按/右键/按钮查看语音转写。
+- 聊天加号面板支持 NAI AI 生图；角色 AI 可以低频输出 `[image prompt="..."]` 主动发图片，图片会同步进入系统相册。
 - 通讯录保留新的朋友、群聊、标签；群聊可选择联系人创建，标签可给联系人填写。
 - 发现页包含朋友圈、照片墙和内置表情包库；表情包可上传并编辑文字描述。
 - 我页面支持修改头像、昵称、状态、微信号；默认微信号为 `9142`，状态输入移到列表行里，避免覆盖个人资料区。
-- 微信样式跟随全局主题：奶油主题使用浅色奶油手绘微信风，哥特主题使用暗色微信风。
+- 微信样式跟随全局主题：微信内部背景、面板、文字、弱文字、强调色、气泡、红点和入口图标都从外层主题变量派生，避免单独冒出不协调的红黄蓝绿。
 
 ## 本次改动
 
+- 2026-05-10：微信界面主题收敛到外层主题色。`--wechat-*` 变量改为读取 `--phone-bg`、`--phone-text`、`--panel-bg` 和 `--accent`；聊天列表、通讯录、我页箭头、入口图标、语音红点、生活卡片、撤回/收藏工具和输入栏按钮不再各自使用跳色。
+- 2026-05-11：微信加号面板新增 NAI AI 生图；AI 生活动作解析新增 `[image prompt="..."]`，模型发图会生成图片气泡并同步相册；输入框聚焦和移动端 visual viewport 变化时会滚动到最新消息，避免键盘呼出后看不到聊天记录。
+- 2026-05-10：`WeChatChats`、`WeChatContacts`、`WeChatMe` 去掉硬编码文字/箭头色，改用 `wechat-row-title`、`wechat-row-preview`、`wechat-row-time`、`wechat-row-chevron` 等语义 class；`ChatScreen` 的微信聊天背景和发送按钮改由微信主题变量控制。
+- 2026-05-10：微信聊天语音条新增未听红点。模型发来的语音消息默认显示红点，点击播放后通过 `markVoiceMessagePlayed` 写入 `voicePlayedAt` 并隐藏红点；用户自己发出的语音不显示未听红点。
+- 2026-05-10：新增 `src/apps/wechat/chat/voiceUnread.ts` 和 `VoiceMessageBubble.tsx`，把语音未读判断、播放态、转文字按钮和红点 UI 从 `ChatScreen.tsx` 拆出，避免聊天房间继续变厚。
+- 2026-05-10：Zustand persist 版本升级到 44，`ChatMessage` 增加兼容可选字段 `voicePlayedAt`，迁移时保留旧消息并补齐语音播放状态字段。
 - 2026-05-08：微信四个底部页签从 `src/App.tsx` 拆到 `src/apps/wechat/`：`chats/WeChatChats.tsx`、`contacts/WeChatContacts.tsx`、`discover/WeChatDiscover.tsx`、`me/WeChatMe.tsx`。`App.tsx` 现在只保留微信外壳 `WeChatApp`、聊天房间 `ChatScreen` 和气泡 `Bubble`。
 - 2026-05-08：新增 `src/apps/wechat/shared/WeChatShared.tsx`，集中微信页签共享的顶栏、头像、群头像、消息预览、聊天预设和预设解析，避免四个页签互相复制。
 - 2026-05-08：聊天页继续按 `ChatScreen` / `Bubble` 局部修整。AI 接口失败不再写入“接口出错”聊天气泡，改为输入栏上方的重试条；用户连发后增加“输入框留空点发送，对方再回复”的待回复提示。
@@ -81,7 +88,7 @@ Maintenance note: update this file whenever WeChat UI/state/import behavior chan
 | 类别 | 功能 | 当前状态 | 下一步 |
 | --- | --- | --- | --- |
 | 基础消息 | 文字发送、连续发送、空白发送触发回复、时间、滚动到底、发送失败重试 | 已有 | 多选管理 |
-| 语音 | 语音条、TTS、转文字、播放中动画 | 已有 | 未读红点 |
+| 语音 | 语音条、TTS、转文字、播放中动画、未听红点 | 已有 | 更细的触摸反馈 |
 | 表情包 | 内置表情、自定义上传、AI 描述、发送 | 已有 | 表情分组、搜索 |
 | 生活动作 | 转账、红包、购物卡片、角色主动低频发送 | 初版 | 收款状态、更多生活事件 |
 | 消息操作 | 点击/长按呼出操作、用户撤回、char 删除、收藏、复制、双引号引用 | 已有 | 转发、多选 |
@@ -102,6 +109,8 @@ Maintenance note: update this file whenever WeChat UI/state/import behavior chan
 - `src/apps/wechat/WeChatApp.tsx`：微信四页签外壳。
 - `src/apps/wechat/chat/ChatList.tsx`：微信/QQ 共用聊天列表入口。
 - `src/apps/wechat/chat/ChatScreen.tsx`：微信/QQ 共用聊天房间、气泡、语音条/转写/TTS。
+- `src/apps/wechat/chat/VoiceMessageBubble.tsx`：微信语音条 UI，包含播放态、未听红点和转文字开关。
+- `src/apps/wechat/chat/voiceUnread.ts`：语音消息未读判断和播放后标记逻辑。
 - `src/apps/wechat/chats/WeChatChats.tsx`：微信聊天列表。
 - `src/apps/wechat/contacts/WeChatContacts.tsx`：微信通讯录、导入角色卡、群聊、标签。
 - `src/apps/wechat/discover/WeChatDiscover.tsx`：发现页、朋友圈、照片墙、表情包。
@@ -116,7 +125,7 @@ Maintenance note: update this file whenever WeChat UI/state/import behavior chan
 
 ## 下一步
 
-- 给语音条增加未读红点和更细的触摸反馈。
+- 给语音条增加更细的触摸反馈。
 - 给聊天输入栏增加更多面板和相册选择。
 - 群聊下一步接入真正的群成员消息上下文和成员管理。
 - 接下来可做转发、多选、群聊房间、图片理解、收藏分类和角色独立预设。

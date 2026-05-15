@@ -16,16 +16,17 @@ import {
   Send,
   ShoppingBag,
   SmilePlus,
+  Sparkles,
   Star,
   Trash2,
   Undo2,
   Users,
   Video,
-  Volume2,
 } from 'lucide-react';
 import React, { useEffect, useRef, useState } from 'react';
 
 import { cn, createId } from '../../../lib/utils';
+import { buildNovelAiPrompt, requestNaiImage } from '../../../lib/naiImage';
 import { speakWithConfiguredTts } from '../../../tts';
 import type { Character, ChatMessage, StickerItem } from '../../../store';
 import { useAppStore } from '../../../store';
@@ -34,6 +35,8 @@ import { delay, describeChatMessage, getCharacterPrompt, requestChatCompletion }
 import { buildWeChatSystemPrompt, fallbackWeChatReply, parseWeChatReplyParts } from '../ai/wechatAi';
 import type { WeChatAiParsedPart } from '../ai/wechatAiMessages';
 import { formatMessageTime, WeChatAvatar } from '../shared/WeChatShared';
+import { isUnreadVoiceMessage } from './voiceUnread';
+import { VoiceMessageBubble } from './VoiceMessageBubble';
 
 function speak(text: string) {
   const { ttsConfig } = useAppStore.getState();
@@ -44,6 +47,7 @@ type PendingChatDraft = {
   content: string;
   replyTo?: string;
   kind: 'text' | 'voice' | 'image' | 'sticker';
+  sourceMessageId?: string;
 };
 
 export function ChatScreen() {
@@ -57,14 +61,19 @@ export function ChatScreen() {
     deleteMessage,
     toggleMessageFavorite,
     recallMessage,
+    markVoiceMessagePlayed,
     addPurchaseRecord,
+    addGalleryPhoto,
     goBack,
     stickers,
     ttsEnabled,
+    imageGenerationConfig,
+    addAppLog,
     apiBaseUrl,
     apiKey,
     selectedModel,
     chatPresetPrompt,
+    appPresets,
     chatContextDepth,
     chatTemperature,
     chatMaxTokens,
@@ -76,6 +85,10 @@ export function ChatScreen() {
   const [replyDraft, setReplyDraft] = useState<string | null>(null);
   const [lifeComposer, setLifeComposer] = useState<'transfer' | 'red-packet' | 'shopping' | null>(null);
   const [lifeDraft, setLifeDraft] = useState({ amount: '', note: '', itemName: '' });
+  const [imageDraft, setImageDraft] = useState('');
+  const [showImageComposer, setShowImageComposer] = useState(false);
+  const [showChatInfo, setShowChatInfo] = useState(false);
+  const [generatingImage, setGeneratingImage] = useState(false);
   const [pendingUserDrafts, setPendingUserDrafts] = useState<PendingChatDraft[]>([]);
   const [failedDraft, setFailedDraft] = useState<{ drafts: PendingChatDraft[]; mode: 'text' | 'voice'; error?: string } | null>(null);
   const [sending, setSending] = useState(false);
@@ -113,11 +126,26 @@ export function ChatScreen() {
   const session = activeChatId ? chatSessions[`${activeChannel}:${activeChatId}`] : undefined;
   const messages = session?.messages || [];
   const isWechat = activeChannel === 'wechat';
+  const channelPresetPrompt = activeChannel === 'qq'
+    ? appPresets.qq.prompt
+    : appPresets.wechat.prompt || chatPresetPrompt;
   const chatSubtitle = activeGroup ? `${groupMembers.length}个成员` : activeChannel === 'qq' ? 'QQ聊天' : '';
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
   }, [messages.length, activeChatId]);
+
+  useEffect(() => {
+    const viewport = window.visualViewport;
+    if (!viewport) return undefined;
+    const scrollToLatest = () => window.setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }), 80);
+    viewport.addEventListener('resize', scrollToLatest);
+    viewport.addEventListener('scroll', scrollToLatest);
+    return () => {
+      viewport.removeEventListener('resize', scrollToLatest);
+      viewport.removeEventListener('scroll', scrollToLatest);
+    };
+  }, [activeChatId]);
 
   if (!character || !activeChatId) return <EmptyScreen title="没有选中角色" />;
 
@@ -186,11 +214,57 @@ export function ChatScreen() {
         note: part.note,
       };
     }
+    if (part.kind === 'image') {
+      return {
+        ...base,
+        content: `想发一张图：${part.prompt}`,
+        kind: 'text',
+      };
+    }
     return {
       ...base,
       content: part.content,
       kind: 'text',
     };
+  };
+
+  const createGeneratedImageMessage = async ({
+    prompt,
+    role,
+    speaker,
+    replyTo,
+  }: {
+    prompt: string;
+    role: 'user' | 'model';
+    speaker?: Character;
+    replyTo?: string;
+  }): Promise<ChatMessage> => {
+    const imageUrl = await requestNaiImage({
+      config: imageGenerationConfig,
+      prompt: buildNovelAiPrompt(`${speaker?.name ? `${speaker.name}想发给我的图，` : ''}${prompt}`, 'wechat'),
+    });
+    const label = prompt.trim().slice(0, 38) || 'AI 生图';
+    const message: ChatMessage = {
+      id: createId('msg'),
+      role,
+      content: imageUrl,
+      timestamp: Date.now(),
+      kind: 'image',
+      stickerLabel: label,
+      speakerId: activeGroup && speaker ? speaker.id : undefined,
+      replyTo,
+    };
+    addGalleryPhoto({
+      url: imageUrl,
+      title: role === 'user' ? '微信生图' : `${speaker?.name || character.name}发来的图`,
+      description: prompt,
+      album: '聊天',
+      tags: ['微信', 'AI生图'],
+      source: 'chat',
+      characterId: role === 'model' ? speaker?.id || character.id : undefined,
+      readableByChar: true,
+    });
+    return message;
   };
 
   const addAssistantReply = async (drafts: PendingChatDraft[], responseMode: 'text' | 'voice') => {
@@ -219,7 +293,7 @@ export function ChatScreen() {
                 characterPrompt: getCharacterPrompt(character),
                 characterName: character.name,
                 memberInstruction,
-                chatPresetPrompt,
+                chatPresetPrompt: channelPresetPrompt,
                 styleInstruction,
               }),
             },
@@ -249,6 +323,20 @@ export function ChatScreen() {
         const part = parts[index];
         const speakable = part.kind === 'text' ? part.content : part.kind === 'sticker' ? '表情包' : describeChatMessage(buildLifeMessage(part, speaker));
         await delay(Math.min(1400, Math.max(420, speakable.length * 55)));
+        if (part.kind === 'image') {
+          try {
+            const imageMessage = await createGeneratedImageMessage({ prompt: part.prompt, role: 'model', speaker });
+            imageMessage.timestamp = Date.now() + index + speakerIndex;
+            addMessage(activeChatId, activeChannel, imageMessage);
+          } catch (error) {
+            const message = buildLifeMessage(part, speaker);
+            message.content = `想发你一张图，但生图失败了：${error instanceof Error ? error.message : '未知错误'}`;
+            message.timestamp = Date.now() + index + speakerIndex;
+            addMessage(activeChatId, activeChannel, message);
+            addAppLog({ type: 'error', title: '微信 char 生图失败', detail: message.content });
+          }
+          continue;
+        }
         const message = buildLifeMessage(part, speaker);
         if (part.kind === 'text' && responseMode === 'voice') {
           message.kind = 'voice';
@@ -342,16 +430,24 @@ export function ChatScreen() {
   };
 
   const addCallNote = (type: 'voice' | 'video') => {
+    const id = createId('msg');
     const label = type === 'voice' ? '发起语音通话' : '发起视频通话';
     addMessage(activeChatId, activeChannel, {
-      id: createId('msg'),
+      id,
       role: 'user',
       content: label,
       timestamp: Date.now(),
       kind: 'call-note',
     });
-    setPendingUserDrafts((drafts) => [...drafts, { content: label, kind: 'text' }]);
+    setPendingUserDrafts((drafts) => [...drafts, { content: label, kind: 'text', sourceMessageId: id }]);
     setShowPlusPanel(false);
+    setShowChatInfo(false);
+  };
+
+  const cancelCallNote = (messageId: string) => {
+    deleteMessage(activeChatId, activeChannel, messageId);
+    setPendingUserDrafts((drafts) => drafts.filter((draft) => draft.sourceMessageId !== messageId));
+    setFailedDraft(null);
   };
 
   const sendImage = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -377,6 +473,31 @@ export function ChatScreen() {
       event.target.value = '';
     };
     reader.readAsDataURL(file);
+  };
+
+  const sendGeneratedImage = async () => {
+    const prompt = imageDraft.trim();
+    if (!prompt || generatingImage || sending) return;
+    setGeneratingImage(true);
+    try {
+      const replyTo = replyDraft || undefined;
+      const message = await createGeneratedImageMessage({ prompt, role: 'user', replyTo });
+      addMessage(activeChatId, activeChannel, message);
+      setPendingUserDrafts((drafts) => [...drafts, { content: `图片：${prompt}`, replyTo, kind: 'image' }]);
+      setImageDraft('');
+      setShowImageComposer(false);
+      setReplyDraft(null);
+      setFailedDraft(null);
+      setShowPlusPanel(false);
+      addAppLog({ type: 'image', title: '微信 NAI 生图成功', detail: prompt });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '生图失败';
+      if (pendingUserDrafts.length > 0) setFailedDraft({ drafts: pendingUserDrafts, mode: 'text', error: message });
+      setShowImageComposer(true);
+      addAppLog({ type: 'error', title: '微信 NAI 生图失败', detail: message });
+    } finally {
+      setGeneratingImage(false);
+    }
   };
 
   const resetLifeDraft = () => {
@@ -425,23 +546,60 @@ export function ChatScreen() {
   };
 
   return (
-    <section className={cn('flex h-full flex-col', isWechat && 'wechat-chat-screen')}>
-      <div className={cn('bg-[var(--phone-bg)] px-4 pb-4 pt-6', isWechat && 'wechat-chat-header')}>
+    <section className={cn('relative flex h-full flex-col', isWechat && 'wechat-chat-screen')}>
+      <div className={cn('px-4 pb-4 pt-6', isWechat && 'wechat-chat-header')}>
         <div className="grid grid-cols-[46px_1fr_46px] items-center">
-          <button onClick={goBack} className="circle-button small">
+          <button type="button" onClick={goBack} className="wechat-icon-button" aria-label="返回">
             <ChevronLeft className="h-6 w-6" />
           </button>
           <div className="min-w-0 text-center">
             <h2 className="truncate text-xl font-black">{character.name}</h2>
             {chatSubtitle && <p className="text-xs font-bold opacity-60">{chatSubtitle}</p>}
           </div>
-          <button type="button" className="wechat-icon-button" aria-label="聊天信息">
+          <button
+            type="button"
+            onClick={() => {
+              setShowChatInfo((visible) => !visible);
+              setShowPlusPanel(false);
+            }}
+            className="wechat-icon-button"
+            aria-label="聊天信息"
+            aria-expanded={showChatInfo}
+          >
             <MoreHorizontal className="h-5 w-5" />
           </button>
         </div>
       </div>
 
-      <div className={cn('flex-1 overflow-y-auto bg-[#efe9dd] px-4 py-4', isWechat && 'wechat-message-list')}>
+      {showChatInfo && (
+        <div className="absolute left-3 right-3 top-20 z-30 rounded-2xl border border-black/10 bg-white/95 p-4 text-[#1f2933] shadow-2xl backdrop-blur">
+          <div className="flex items-center gap-3">
+            <WeChatAvatar src={character.avatar} name={character.name} />
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-black">{character.name}</p>
+              <p className="text-xs font-semibold text-[#6b7280]">
+                {activeGroup ? `${groupMembers.length} 个成员` : activeChannel === 'qq' ? 'QQ 聊天' : '微信聊天'}
+              </p>
+            </div>
+            <button type="button" onClick={() => setShowChatInfo(false)} className="wechat-mini-button">关闭</button>
+          </div>
+          <div className="mt-3 grid grid-cols-2 gap-2 text-xs font-bold text-[#4b5563]">
+            <div className="rounded-xl bg-[#f3f4f6] p-3">
+              <span className="block text-[#9ca3af]">聊天记录</span>
+              <strong className="text-sm text-[#111827]">{messages.length} 条</strong>
+            </div>
+            <div className="rounded-xl bg-[#f3f4f6] p-3">
+              <span className="block text-[#9ca3af]">等待发送</span>
+              <strong className="text-sm text-[#111827]">{pendingUserDrafts.length} 条</strong>
+            </div>
+          </div>
+          <p className="mt-3 text-xs font-semibold text-[#6b7280]">
+            {apiBaseUrl && selectedModel ? `已连接：${selectedModel}` : '未配置聊天连接，将使用本地模拟回复。'}
+          </p>
+        </div>
+      )}
+
+      <div className={cn('flex-1 overflow-y-auto px-4 py-4', isWechat && 'wechat-message-list')}>
         {messages.length === 0 && character.firstMessage && (
           <Bubble role="model" content={character.firstMessage} kind="text" channel={activeChannel} character={character} />
         )}
@@ -462,6 +620,7 @@ export function ChatScreen() {
               note={message.note}
               itemName={message.itemName}
               status={message.status}
+              voicePlayedAt={message.voicePlayedAt}
               timestamp={message.timestamp}
               showTools={activeToolMessageId === message.id}
               channel={activeChannel}
@@ -471,7 +630,14 @@ export function ChatScreen() {
               onToggleFavorite={() => toggleMessageFavorite(activeChatId, activeChannel, message.id)}
               onCopy={() => navigator.clipboard?.writeText(describeChatMessage(message))}
               onReply={() => setReplyDraft(describeChatMessage(message).slice(0, 60))}
-              onRecall={message.role === 'user' ? () => recallMessage(activeChatId, activeChannel, message.id) : undefined}
+              onRecall={message.role === 'user'
+                ? message.kind === 'call-note'
+                  ? pendingUserDrafts.some((draft) => draft.sourceMessageId === message.id)
+                    ? () => cancelCallNote(message.id)
+                    : undefined
+                  : () => recallMessage(activeChatId, activeChannel, message.id)
+                : undefined}
+              onVoicePlayed={() => markVoiceMessagePlayed(activeChatId, activeChannel, message.id)}
             />
           );
         })}
@@ -487,7 +653,7 @@ export function ChatScreen() {
         <div ref={messagesEndRef} />
       </div>
 
-      <div className={cn('border-t-[3px] border-[#111] bg-[var(--phone-bg)] p-3', isWechat && 'wechat-input-bar')}>
+      <div className={cn('p-3', isWechat && 'wechat-input-bar')}>
         {replyDraft && (
           <div className="wechat-reply-draft">
             <span>引用：{replyDraft}</span>
@@ -509,6 +675,10 @@ export function ChatScreen() {
             <button type="button" onClick={() => imageInputRef.current?.click()} className="wechat-plus-action">
               <ImagePlus className="h-5 w-5" />
               <span>图片</span>
+            </button>
+            <button type="button" onClick={() => { setShowImageComposer(true); setImageDraft((current) => current || input.trim()); }} className="wechat-plus-action">
+              <Sparkles className="h-5 w-5" />
+              <span>AI 生图</span>
             </button>
             <button type="button" onClick={() => addCallNote('voice')} className="wechat-plus-action">
               <Phone className="h-5 w-5" />
@@ -545,6 +715,23 @@ export function ChatScreen() {
                 </div>
               </div>
             )}
+            {showImageComposer && (
+              <div className="wechat-life-composer">
+                <textarea
+                  value={imageDraft}
+                  onChange={(event) => setImageDraft(event.target.value)}
+                  onFocus={() => window.setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }), 80)}
+                  className="min-h-20 w-full resize-none"
+                  placeholder="描述想生成的图片"
+                />
+                <div className="mt-2 flex gap-2">
+                  <button type="button" onClick={sendGeneratedImage} disabled={generatingImage}>
+                    {generatingImage ? '生成中' : '生成并发送'}
+                  </button>
+                  <button type="button" onClick={() => { setImageDraft(''); setShowImageComposer(false); }}>取消</button>
+                </div>
+              </div>
+            )}
             <p className="wechat-plus-label">
               <SmilePlus className="h-4 w-4" />
               表情包
@@ -562,6 +749,7 @@ export function ChatScreen() {
           <textarea
             value={input}
             onChange={(event) => setInput(event.target.value)}
+            onFocus={() => window.setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }), 80)}
             onKeyDown={(event) => {
               if (event.key === 'Enter' && !event.shiftKey) {
                 event.preventDefault();
@@ -573,10 +761,10 @@ export function ChatScreen() {
             className="hand-input wechat-chat-input min-h-11 flex-1 resize-none"
           />
           <input ref={imageInputRef} type="file" accept="image/*" onChange={sendImage} className="hidden" />
-          <button onClick={() => setShowPlusPanel((visible) => !visible)} className={cn('circle-button small', showPlusPanel && 'bg-[#d9e8f6]')}>
+          <button onClick={() => setShowPlusPanel((visible) => !visible)} className={cn('circle-button small', showPlusPanel && 'wechat-compose-button-active')}>
             <Plus className="h-5 w-5" />
           </button>
-          <button onClick={send} className="circle-button small bg-[#d9e8f6]">
+          <button onClick={send} className="circle-button small wechat-compose-send">
             {sending ? <RefreshCw className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
           </button>
         </div>
@@ -598,6 +786,7 @@ function Bubble({
   note,
   itemName,
   status,
+  voicePlayedAt,
   timestamp,
   showTools,
   channel,
@@ -608,6 +797,7 @@ function Bubble({
   onCopy,
   onReply,
   onRecall,
+  onVoicePlayed,
 }: {
   key?: React.Key;
   role: 'user' | 'model';
@@ -622,6 +812,7 @@ function Bubble({
   note?: string;
   itemName?: string;
   status?: 'pending' | 'accepted';
+  voicePlayedAt?: number;
   timestamp?: number;
   showTools?: boolean;
   channel?: 'wechat' | 'qq';
@@ -632,12 +823,11 @@ function Bubble({
   onCopy?: () => void;
   onReply?: () => void;
   onRecall?: () => void;
+  onVoicePlayed?: () => void;
 }) {
   const isUser = role === 'user';
   const isWechat = channel === 'wechat';
   const { userAvatar, userName } = useAppStore();
-  const [showTranscript, setShowTranscript] = useState(false);
-  const [isPlaying, setIsPlaying] = useState(false);
   const longPressTimer = useRef<number | null>(null);
   const runTool = (event: React.MouseEvent<HTMLButtonElement>, action?: () => void) => {
     event.stopPropagation();
@@ -685,12 +875,6 @@ function Bubble({
     }
   };
 
-  const playVoice = () => {
-    setIsPlaying(true);
-    speak(content);
-    window.setTimeout(() => setIsPlaying(false), Math.max(900, (duration || 3) * 1000));
-  };
-
   const armMessageTools = () => {
     clearLongPress();
     longPressTimer.current = window.setTimeout(() => onToggleTools?.(), 360);
@@ -723,6 +907,11 @@ function Bubble({
         {isVideoCall ? <Video className="h-3.5 w-3.5" /> : <Phone className="h-3.5 w-3.5" />}
         <span>{content}</span>
         {meta}
+        {isUser && onRecall && (
+          <button type="button" onClick={(event) => runTool(event, onRecall)} className="wechat-mini-button">
+            取消
+          </button>
+        )}
       </div>
     );
   }
@@ -802,44 +991,23 @@ function Bubble({
   }
   if (kind === 'voice') {
     if (isWechat) {
-      const voiceDuration = duration || 3;
-      const width = Math.min(228, Math.max(112, 92 + voiceDuration * 9));
-      const transcriptText = transcript || content;
       return (
         <div className={cn('wechat-message mb-3 flex gap-2', isUser ? 'justify-end' : 'justify-start')}>
           {!isUser && <WeChatAvatar src={character?.avatar} name={character?.name || 'char'} />}
           <div className={cn('flex max-w-[78%] flex-col', isUser ? 'items-end' : 'items-start')}>
             {replyLine}
-            <button
-              onClick={playVoice}
-              onContextMenu={(event) => {
-                event.preventDefault();
-                onToggleTools?.();
+            <VoiceMessageBubble
+              content={content}
+              duration={duration}
+              transcript={transcript}
+              isUser={isUser}
+              isUnread={isUnreadVoiceMessage({ role, kind, voicePlayedAt })}
+              onPlay={() => {
+                speak(content);
+                onVoicePlayed?.();
               }}
-              onPointerDown={() => {
-                armMessageTools();
-              }}
-              onPointerUp={clearLongPress}
-              onPointerCancel={clearLongPress}
-              onPointerLeave={clearLongPress}
-              className={cn('wechat-voice-bubble', isPlaying && 'is-playing', isUser ? 'wechat-voice-user' : 'wechat-voice-model')}
-              style={{ width }}
-              title="点击播放，长按或右键查看转写"
-            >
-              <span className="wechat-voice-icon">
-                <Volume2 className="h-4 w-4" />
-              </span>
-              <span className="wechat-voice-waves" aria-hidden="true">
-                <i />
-                <i />
-                <i />
-              </span>
-              <span className="wechat-voice-duration">{voiceDuration}"</span>
-            </button>
-            <button type="button" onClick={() => setShowTranscript((visible) => !visible)} className="wechat-transcript-toggle">
-              {showTranscript ? '收起转文字' : '转文字'}
-            </button>
-            {showTranscript && <p className="wechat-transcript">{transcriptText}</p>}
+              onToggleTools={onToggleTools}
+            />
             {meta}
             {messageTools}
           </div>
@@ -850,7 +1018,13 @@ function Bubble({
 
     return (
       <div className={cn('mb-3 flex', isUser ? 'justify-end' : 'justify-start')}>
-        <button onClick={playVoice} className={cn('hand-bubble flex min-w-32 items-center gap-2', isUser ? 'bg-[#d7efc7]' : 'bg-white')}>
+        <button
+          onClick={() => {
+            speak(content);
+            onVoicePlayed?.();
+          }}
+          className={cn('hand-bubble flex min-w-32 items-center gap-2', isUser ? 'bg-[#d7efc7]' : 'bg-white')}
+        >
           <Mic className="h-4 w-4" />
           <span>{duration || 3}"</span>
           <span className="text-xs opacity-65">点按播放</span>
@@ -863,7 +1037,16 @@ function Bubble({
       {isWechat && !isUser && <WeChatAvatar src={character?.avatar} name={character?.name || 'char'} />}
       <div className={cn('flex max-w-[78%] flex-col', isUser ? 'items-end' : 'items-start')}>
         {replyLine}
-        <div className={cn(isWechat && 'wechat-text-wrap', 'hand-bubble whitespace-pre-wrap leading-relaxed', isUser ? 'bg-[#d7efc7]' : 'bg-white')} {...messageEvents}>{content}</div>
+        <div
+          className={cn(
+            isWechat && 'wechat-text-wrap',
+            'hand-bubble whitespace-pre-wrap leading-relaxed',
+            isWechat ? (isUser ? 'wechat-text-user' : 'wechat-text-model') : (isUser ? 'bg-[#d7efc7]' : 'bg-white'),
+          )}
+          {...messageEvents}
+        >
+          {content}
+        </div>
         {meta}
         {isWechat && messageTools}
       </div>

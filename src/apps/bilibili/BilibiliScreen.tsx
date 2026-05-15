@@ -122,7 +122,8 @@ export function BilibiliScreen() {
     apiKey,
     selectedModel,
     chatTemperature,
-    browserPresetPrompt,
+    bilibiliPresetPrompt,
+    goBack,
   } = useAppStore();
   const entries = bilibiliEntries;
   const [view, setView] = useState<BilibiliView>('feed');
@@ -160,7 +161,7 @@ export function BilibiliScreen() {
           model: selectedModel,
           query: clean,
           temperature: chatTemperature,
-          preset: browserPresetPrompt,
+          preset: bilibiliPresetPrompt,
         });
         payload = parseBilibiliPayload(raw, clean);
       }
@@ -246,15 +247,20 @@ export function BilibiliScreen() {
     <section className="no-scrollbar h-full overflow-y-auto pb-8">
       <div className="sticky top-0 z-10 border-b-[3px] border-[#111] bg-[#cfe5ef] px-4 py-4">
         <div className="flex items-center justify-between gap-3">
-          <div>
+          <div className="flex min-w-0 items-center gap-3">
+            <button onClick={goBack} className="app-chip shrink-0" aria-label="返回桌面">
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            <div className="min-w-0">
             <h1 className="text-2xl font-black">B站</h1>
             <p className="text-xs font-black text-[#111]/55">按角色卡和现实生活刷新视频</p>
+            </div>
           </div>
           <button onClick={() => void runSearch()} disabled={isSearching} className="app-chip">
             <RefreshCw className={isSearching ? 'h-5 w-5 animate-spin' : 'h-5 w-5'} />
           </button>
         </div>
-        <div className="mt-4 flex gap-2">
+        <div className="mt-4 grid grid-cols-[minmax(0,1fr)_auto] gap-2">
           <input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
@@ -264,7 +270,7 @@ export function BilibiliScreen() {
             placeholder="可空着，直接按角色卡刷新"
             className="min-w-0 flex-1 rounded-[8px] border-[2px] border-[#111] bg-white px-3 py-2 text-sm font-bold outline-none"
           />
-          <button onClick={() => void runSearch()} disabled={isSearching} className="fetch-button bg-[#f4edbd] px-4">
+          <button onClick={() => void runSearch()} disabled={isSearching} className="fetch-button !w-auto shrink-0 bg-[#f4edbd] px-4">
             {isSearching ? '刷新中' : '刷新'}
           </button>
         </div>

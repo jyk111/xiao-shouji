@@ -31,6 +31,12 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Character, ChatMessage, MusicPlaylist, MusicTrack, useAppStore } from '../../store';
 import { cn } from '../../lib/utils';
+import {
+  buildMiniMaxMusicGenerationRequest,
+  extractMiniMaxMusicAudio,
+  formatMiniMaxLyrics,
+  hexToAudioBlobUrl,
+} from './musicGeneration';
 
 type ChatCompletionMessage = { role: 'user' | 'assistant' | 'system'; content: string };
 
@@ -176,6 +182,11 @@ function Empty({ text }: { text: string }) {
 }
 type MusicTab = 'library' | 'player' | 'char' | 'me';
 type MusicLibraryView = 'index' | 'liked' | 'playlists' | 'playlist-detail' | 'history';
+
+const minimaxMusicModelPresets = [
+  { label: 'music-2.6', value: 'music-2.6' },
+  { label: 'music-2.6-free', value: 'music-2.6-free' },
+];
 
 type MusicPlaylistDraft = {
   name: string;
@@ -342,6 +353,7 @@ export function MusicScreen() {
     apiKey,
     selectedModel,
     chatTemperature,
+    musicPresetPrompt,
     userName,
     userAvatar,
     setUserName,
@@ -922,14 +934,14 @@ export function MusicScreen() {
     setShowCoverPicker(false);
   };
 
-  const saveCharSongTrack = (payload: { title: string; mood: string; melody: string; arrangement: string; lyrics: string; character: Character }) => {
+  const saveCharSongTrack = (payload: { title: string; mood: string; melody: string; arrangement: string; lyrics: string; character: Character; audioUrl?: string }) => {
     const lyrics = cleanLyricsText(payload.lyrics) || fallbackSongLyrics(payload.title, payload.character);
-    addMusicTrack({
+    return addMusicTrack({
       title: payload.title,
       artist: payload.character.name,
       album: 'char 创作',
       cover: payload.character.avatar || 'linear-gradient(135deg,#050505,#7e1114)',
-      audioUrl: '',
+      audioUrl: payload.audioUrl || '',
       lyrics,
       melody: payload.melody,
       arrangement: payload.arrangement,
@@ -977,6 +989,105 @@ export function MusicScreen() {
     '这句副歌还会替我，停在你掌心',
   ].join('\n');
 
+  const getMiniMaxMusicApiKey = () => (
+    musicSourceConfig.minimaxApiKey.trim() ||
+    (ttsConfig.provider === 'minimax' ? ttsConfig.apiKey.trim() : '')
+  );
+
+  const buildCharMusicPrompt = (payload: { character: Character; mood: string; melody: string; arrangement: string }) => [
+    payload.mood,
+    `${payload.character.name} character song, emotional vocal performance`,
+    payload.melody && `Melody: ${payload.melody}`,
+    payload.arrangement && `Arrangement: ${payload.arrangement}`,
+    'Full song, polished pop production, clear vocal, no narration',
+  ].filter(Boolean).join('. ');
+
+  const requestMiniMaxMusicAudio = async (payload: { title: string; mood: string; melody: string; arrangement: string; lyrics: string; character: Character }) => {
+    const minimaxApiKey = getMiniMaxMusicApiKey();
+    if (!minimaxApiKey) {
+      throw new Error('先填写 MiniMax 音乐 API Key。');
+    }
+
+    const lyrics = formatMiniMaxLyrics(cleanLyricsText(payload.lyrics) || fallbackSongLyrics(payload.title, payload.character));
+    const request = buildMiniMaxMusicGenerationRequest({
+      apiKey: minimaxApiKey,
+      baseUrl: musicSourceConfig.minimaxBaseUrl,
+      model: musicSourceConfig.minimaxModel,
+      prompt: buildCharMusicPrompt(payload),
+      lyrics,
+    });
+
+    addAppLog({
+      type: 'music',
+      title: '发送 MiniMax 音乐生成请求',
+      detail: JSON.stringify({
+        endpoint: request.url,
+        model: musicSourceConfig.minimaxModel || 'music-2.6',
+        title: payload.title,
+        prompt: buildCharMusicPrompt(payload),
+        lyrics,
+      }, null, 2),
+    });
+
+    const response = await fetch(request.url, request.init);
+    const text = await response.text();
+    let data: unknown = {};
+    try {
+      data = text ? JSON.parse(text) : {};
+    } catch {
+      throw new Error('MiniMax 音乐返回的不是 JSON。');
+    }
+    if (!response.ok) {
+      throw new Error(`MiniMax 音乐生成失败：${response.status}`);
+    }
+
+    const audio = extractMiniMaxMusicAudio(data);
+    addAppLog({ type: 'music', title: 'MiniMax 音乐生成返回', detail: JSON.stringify({ kind: audio.kind, durationMs: audio.durationMs }, null, 2) });
+    return {
+      audioUrl: audio.kind === 'url' ? audio.audio : hexToAudioBlobUrl(audio.audio),
+      durationSeconds: audio.durationMs ? Math.max(1, Math.round(audio.durationMs / 1000)) : 0,
+    };
+  };
+
+  const generateMusicAudioForSong = async (track?: MusicTrack) => {
+    const character = track?.characterId
+      ? characters.find((item) => item.id === track.characterId) || charWriter
+      : charWriter;
+    if (!character) {
+      setCharSongStatus('先导入或选择一个 char。');
+      return;
+    }
+    if (!getMiniMaxMusicApiKey()) {
+      setCharSongStatus('先在这里填写 MiniMax 音乐 API Key，或在设置里选 MiniMax TTS 并填 key。');
+      return;
+    }
+
+    const title = track?.title || charSongDraft.title.trim() || `${character.name} 写给你的歌`;
+    const mood = track?.tags.filter((tag) => tag !== 'char创作').join('、') || charSongDraft.mood.trim() || '想念、夜晚、耳机共享';
+    const melody = track?.melody || charSongDraft.melody.trim() || '主歌低声，副歌上扬，hook 重复歌名。';
+    const arrangement = track?.arrangement || charSongDraft.arrangement.trim() || '电钢、轻鼓、合成器 pad，副歌加入和声。';
+    const lyrics = cleanLyricsText(track?.lyrics || charSongDraft.lyrics) || fallbackSongLyrics(title, character);
+
+    setGeneratingCharSong(true);
+    setCharSongStatus('正在生成音乐音频...');
+    try {
+      const musicAudio = await requestMiniMaxMusicAudio({ title, mood, melody, arrangement, lyrics, character });
+      if (track) {
+        updateMusicTrack(track.id, { audioUrl: musicAudio.audioUrl });
+        setMusicPlayer({ trackId: track.id, playing: true, progress: 0, duration: musicAudio.durationSeconds });
+      } else {
+        const id = saveCharSongTrack({ title, mood, melody, arrangement, lyrics, character, audioUrl: musicAudio.audioUrl });
+        setMusicPlayer({ trackId: id, playing: true, progress: 0, duration: musicAudio.durationSeconds });
+        setCharSongDraft({ characterId: character.id, title, mood, melody, arrangement, lyrics });
+      }
+      setCharSongStatus('音乐已生成，并保存到这个 char 名下。');
+    } catch (error) {
+      setCharSongStatus(error instanceof Error ? error.message : 'MiniMax 音乐生成失败。');
+    } finally {
+      setGeneratingCharSong(false);
+    }
+  };
+
   const generateCharSong = async () => {
     const character = charWriter;
     if (!character) {
@@ -1017,6 +1128,7 @@ export function MusicScreen() {
               '旋律要能让人想象怎么唱，例如主歌/副歌走向、音域、节奏、重复 hook。',
               '编曲要包含乐器、速度、段落结构和情绪推进。',
               '【歌词】里必须至少写两段主歌和一段副歌，只能写真正会唱出来的歌词，不许混入旋律、编曲、解释、旁白或小标题。',
+              musicPresetPrompt,
             ].join('\n'),
           },
           {
@@ -1049,9 +1161,23 @@ export function MusicScreen() {
         const melody = readSongSection(content, '旋律') || manualMelody || '主歌低声靠近，副歌抬高半个八度，结尾用一句重复 hook 收住。';
         const arrangement = readSongSection(content, '编曲') || manualArrangement || '中速鼓组、干净电钢、低频合成器，副歌加入和声铺底。';
         const lyrics = cleanLyricsText(readSongSection(content, '歌词') || manualLyrics || content.trim()) || fallbackSongLyrics(nextTitle, character);
-        saveCharSongTrack({ title: nextTitle, mood: style, melody, arrangement, lyrics, character });
+        let audioUrl = '';
+        let durationSeconds = 0;
+        let audioError = '';
+        if (getMiniMaxMusicApiKey()) {
+          setCharSongStatus('歌词写好了，正在生成音乐音频...');
+          try {
+            const musicAudio = await requestMiniMaxMusicAudio({ title: nextTitle, mood: style, melody, arrangement, lyrics, character });
+            audioUrl = musicAudio.audioUrl;
+            durationSeconds = musicAudio.durationSeconds;
+          } catch (error) {
+            audioError = error instanceof Error ? error.message : 'MiniMax 音乐生成失败。';
+          }
+        }
+        const trackId = saveCharSongTrack({ title: nextTitle, mood: style, melody, arrangement, lyrics, character, audioUrl });
+        if (audioUrl) setMusicPlayer({ trackId, playing: true, progress: 0, duration: durationSeconds });
         setCharSongDraft({ characterId: character.id, title: nextTitle, mood: style, melody, arrangement, lyrics });
-        setCharSongStatus('已创作并保存到这个 char 名下。');
+        setCharSongStatus(audioUrl ? '已创作、生成音乐，并保存到这个 char 名下。' : audioError ? `已写歌并保存；音乐生成失败：${audioError}` : '已创作并保存到这个 char 名下。');
       } catch {
         setCharSongStatus('AI 创作失败，已用当前填写内容保存一版。');
         const lyrics = manualLyrics || [
@@ -1084,16 +1210,35 @@ export function MusicScreen() {
     ].join('\n');
     const melody = manualMelody || '主歌低声、短句，副歌上扬并重复歌名，结尾把最后一句放慢。';
     const arrangement = manualArrangement || '72 BPM，电钢和轻鼓开场，副歌加入合成器 pad 与低声和声。';
-    saveCharSongTrack({
+    const shouldGenerateAudio = Boolean(getMiniMaxMusicApiKey());
+    let audioUrl = '';
+    let durationSeconds = 0;
+    let audioError = '';
+    if (shouldGenerateAudio) {
+      setGeneratingCharSong(true);
+      setCharSongStatus('正在生成音乐音频...');
+      try {
+        const musicAudio = await requestMiniMaxMusicAudio({ title, mood, melody, arrangement, lyrics, character });
+        audioUrl = musicAudio.audioUrl;
+        durationSeconds = musicAudio.durationSeconds;
+      } catch (error) {
+        audioError = error instanceof Error ? error.message : 'MiniMax 音乐生成失败。';
+      } finally {
+        setGeneratingCharSong(false);
+      }
+    }
+    const trackId = saveCharSongTrack({
       title,
       mood,
       melody,
       arrangement,
       lyrics,
       character,
+      audioUrl,
     });
+    if (audioUrl) setMusicPlayer({ trackId, playing: true, progress: 0, duration: durationSeconds });
     setCharSongDraft({ characterId: character.id, title, mood, melody, arrangement, lyrics });
-    setCharSongStatus('已保存到这个 char 名下。配置 AI 后可以按人设和历史创作更完整版本。');
+    setCharSongStatus(audioUrl ? '已生成音乐，并保存到这个 char 名下。' : audioError ? `已保存歌词；音乐生成失败：${audioError}` : '已保存到这个 char 名下。配置 AI 后可以按人设和历史创作更完整版本。');
   };
 
   const singWithTts = async (track?: MusicTrack) => {
@@ -1627,7 +1772,7 @@ export function MusicScreen() {
           <Field icon={<Volume2 />} label="旋律"><p className="rounded-2xl bg-white/55 p-3 text-sm font-bold leading-6">{activeCharSong.melody || '暂无旋律记录'}</p></Field>
           <Field icon={<Headphones />} label="编曲"><p className="rounded-2xl bg-white/55 p-3 text-sm font-bold leading-6">{activeCharSong.arrangement || '暂无编曲记录'}</p></Field>
           <Field icon={<Quote />} label="歌词"><p className="whitespace-pre-wrap rounded-2xl bg-white/55 p-3 text-sm font-bold leading-7">{cleanLyricsText(activeCharSong.lyrics) || '暂无歌词'}</p></Field>
-          <button onClick={() => void singWithTts(activeCharSong)} className="save-button mb-2 w-full">唱歌</button>
+          <button onClick={() => void generateMusicAudioForSong(activeCharSong)} disabled={generatingCharSong} className="save-button mb-2 w-full">{generatingCharSong ? '生成中' : activeCharSong.audioUrl ? '重新生成音乐' : '生成音乐'}</button>
           <div className="grid grid-cols-3 gap-2">
             <button onClick={() => toggleMusicTrackLiked(activeCharSong.id)} className="fetch-button justify-center">{activeCharSong.liked ? '已收藏' : '收藏'}</button>
             <button onClick={() => {
@@ -1655,16 +1800,51 @@ export function MusicScreen() {
               {characters.map((character) => <option key={character.id} value={character.id}>{character.name}</option>)}
             </select>
           </Field>
+          <Field icon={<Sparkles />} label="MiniMax 音乐">
+            <div className="grid gap-2">
+              <div className="flex flex-wrap gap-2">
+                {minimaxMusicModelPresets.map((preset) => (
+                  <button
+                    key={preset.value}
+                    type="button"
+                    onClick={() => setMusicSourceConfig({ minimaxModel: preset.value })}
+                    className={cn('pill text-xs', (musicSourceConfig.minimaxModel || 'music-2.6') === preset.value && 'active')}
+                  >
+                    {preset.label}
+                  </button>
+                ))}
+              </div>
+              <input
+                value={musicSourceConfig.minimaxModel}
+                onChange={(event) => setMusicSourceConfig({ minimaxModel: event.target.value })}
+                className="hand-input w-full text-xs"
+                placeholder="music-2.6"
+              />
+              <input
+                value={musicSourceConfig.minimaxApiKey}
+                onChange={(event) => setMusicSourceConfig({ minimaxApiKey: event.target.value })}
+                className="hand-input w-full text-xs"
+                placeholder="MiniMax 音乐 API Key；也可复用设置里的 MiniMax TTS Key"
+                type="password"
+              />
+              <input
+                value={musicSourceConfig.minimaxBaseUrl}
+                onChange={(event) => setMusicSourceConfig({ minimaxBaseUrl: event.target.value })}
+                className="hand-input w-full text-xs"
+                placeholder="https://api.minimax.io/v1/music_generation"
+              />
+            </div>
+          </Field>
           <Field icon={<Music />} label="歌名"><input value={charSongDraft.title} onChange={(event) => setCharSongDraft({ ...charSongDraft, title: event.target.value })} className="hand-input w-full text-sm" placeholder="让 char 写一首歌" /></Field>
           <Field icon={<Tag />} label="情绪"><input value={charSongDraft.mood} onChange={(event) => setCharSongDraft({ ...charSongDraft, mood: event.target.value })} className="hand-input w-full text-sm" /></Field>
           <Field icon={<Volume2 />} label="旋律"><textarea value={charSongDraft.melody} onChange={(event) => setCharSongDraft({ ...charSongDraft, melody: event.target.value })} className="hand-input min-h-20 w-full resize-none text-sm" placeholder="比如：主歌低声，副歌上扬，hook 重复歌名" /></Field>
           <Field icon={<Headphones />} label="编曲"><textarea value={charSongDraft.arrangement} onChange={(event) => setCharSongDraft({ ...charSongDraft, arrangement: event.target.value })} className="hand-input min-h-20 w-full resize-none text-sm" placeholder="比如：电钢、鼓组、合成器 pad，副歌加和声" /></Field>
           <Field icon={<Quote />} label="歌词"><textarea value={charSongDraft.lyrics} onChange={(event) => setCharSongDraft({ ...charSongDraft, lyrics: event.target.value })} className="hand-input min-h-32 w-full resize-none text-sm" placeholder="可留空，让 AI 按人设和过去创作写完整歌曲" /></Field>
           <div className="grid grid-cols-2 gap-2">
-            <button onClick={() => void generateCharSong()} disabled={generatingCharSong} className="save-button w-full">{generatingCharSong ? '创作中' : '创作'}</button>
-            <button onClick={() => void singWithTts()} className="save-button w-full">唱歌</button>
+            <button onClick={() => void generateCharSong()} disabled={generatingCharSong} className="save-button w-full">{generatingCharSong ? '创作中' : getMiniMaxMusicApiKey() ? '写歌+生成' : '创作'}</button>
+            <button onClick={() => void generateMusicAudioForSong()} disabled={generatingCharSong} className="save-button w-full">{generatingCharSong ? '生成中' : '生成音乐'}</button>
           </div>
-          <p className="mt-2 text-xs font-black opacity-55">接入 TTS/歌声模型后可以唱歌。</p>
+          <p className="mt-2 text-xs font-black opacity-55">MiniMax 音乐使用独立接口，和 TTS 音色试听分开。</p>
           {charSongStatus && <p className="mt-3 rounded-2xl bg-white/55 px-3 py-2 text-xs font-black leading-5 opacity-70">{charSongStatus}</p>}
           <div className="mt-4 grid gap-2">
             {charSongs.slice(0, 8).map((track) => (

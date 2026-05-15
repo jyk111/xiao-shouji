@@ -26,6 +26,8 @@
 
 这一层不保存复杂业务，只读取各 App 的未读、提醒、最近事件和主题变量。后续优先补锁屏和通知中心，让用户进入项目时先看到一台真实手机，而不是功能菜单。
 
+当前锁屏和通知中心第一版已落地在 `src/App.tsx` 与 `src/shell/notifications.ts`：通知只从现有 `chatSessions.unread`、`phoneCallRecords` 未接/未接通记录、`calendarEvents.reminderAt`、`memos.reminderAt` 派生，不写入新的业务状态，不启动后台自动任务。通知点击只回到对应 App 入口，桌面和 Dock 角标也只使用同一份派生计数。
+
 ### 2. 生活 App 层
 
 负责具体场景。已有或规划中的 App 都属于这一层。
@@ -43,6 +45,8 @@
 
 原则：每个 App 可以有自己的 UI 和本地状态，但重要行为要进入生活事件层。
 
+2026-05-10 查手机角色手机视角：本轮只做生活 App 层的查手机展示，不改生活事件时间线、锁屏、通知中心、微信聊天优化或主动事件。`src/apps/peek/peekLogic.ts` 按选中 char 生成/汇总 TA 自己手机里的最近聊天、日记、相册、日历、备忘、浏览器、小红书和音乐摘要；首页模块可点进二级界面查看具体条目；优先读取明确属于该角色的已有状态，没有明确记录时生成角色手机痕迹摘要，不把用户手机数据当成角色手机。
+
 ### 3. 生活事件层
 
 这是后续的中枢。它把各 App 的重要行为整理成统一时间线，供通知、查手机、AI 上下文和主动事件读取。
@@ -53,16 +57,20 @@
 interface LifeEvent {
   id: string;
   type: 'chat' | 'call' | 'diary' | 'photo' | 'calendar' | 'music' | 'social' | 'video' | 'memo' | 'system';
-  app: 'wechat' | 'phone' | 'diary' | 'calendar' | 'gallery' | 'xiaohongshu' | 'bilibili' | 'music' | 'memo' | 'system';
+  app: 'wechat' | 'qq' | 'phone' | 'diary' | 'calendar' | 'gallery' | 'xiaohongshu' | 'bilibili' | 'music' | 'memo' | 'system';
   characterId?: string;
   title: string;
   summary: string;
   mood?: string;
   importance: 1 | 2 | 3 | 4 | 5;
   sourceId?: string;
+  readableByChar?: boolean;
+  tags?: string[];
   createdAt: number;
 }
 ```
+
+当前第一版已落地为 `src/lifeEvents.ts` 和 `src/store.ts` 的 `lifeEvents`。写入统一走 `addLifeEvent`，同一个 `app + sourceId` 会更新原事件而不是重复追加；读取统一走 `getLifeEventTimeline`，可按角色、App、类型、重要性和可读范围筛选。普通聊天默认不写入事件，只有收藏、明确重要或被摘要标记为重要的聊天节点才通过 `isHighValueChatLifeEventInput`。
 
 第一版只需要写入高价值事件：
 
@@ -121,12 +129,14 @@ interface ActiveEventRule {
 
 主动系统不要一开始就做复杂调度。第一版可以由用户点击“刷新今日生活”触发，等事件规则稳定后再自动低频触发。
 
+2026-05-10 主动事件第一版已落地为手动入口 `src/apps/active-events/ActiveEventsScreen.tsx` 和 UI-free 逻辑 `src/apps/active-events/activeEventsLogic.ts`。入口名为“今日生活”，只在用户点击“刷新今日生活”时读取现有聊天、日记、日历、相册、朋友圈、音乐、小红书和生活事件数据，生成最多 3 条建议；刷新本身有 6 小时冷却，冷却时间持久化在 `src/store.ts` 的 `activeEventLastRefreshAt`。建议只做预览，用户点“确认写入”后才会写入对应 App：微信短消息、char 日记、音乐聆听记录、朋友圈动态或后台记录，并同步写入 `lifeEvents`。第一版不启动后台自动任务，不接入锁屏或通知中心，不批量伪造新内容，所有建议都必须带有真实 `sourceIds`。
+
 ## 第一阶段路线
 
 1. 写入生活事件基础结构。
 2. 给微信、电话、日记、日历、相册、小红书、B站接入最小事件写入。
 3. 做生活时间线调试视图，先确认事件内容干净。
-4. 做锁屏和通知中心，读取生活事件生成提醒。
+4. 已完成：先做锁屏和通知中心最小版本，读取现有未读消息、未接电话、日历提醒和备忘提醒生成派生通知；后续生活事件稳定后可再把事件时间线作为通知来源之一。
 5. 升级查手机，让它优先读取生活事件时间线。
 
 ## 第二阶段路线
@@ -139,9 +149,9 @@ interface ActiveEventRule {
 ## 第三阶段路线
 
 1. 引入主动事件规则。
-2. 从手动触发开始，例如“刷新今日生活”。
-3. 加入冷却和概率，避免打扰。
-4. 让主动事件写回对应 App 和生活事件时间线。
+2. 已完成：从手动触发开始，例如“刷新今日生活”。
+3. 已完成：先加入 6 小时手动冷却和最多 3 条建议的低频限制；概率规则暂不启用。
+4. 已完成：确认后让主动事件写回对应 App 和生活事件时间线。
 
 ## 文档维护要求
 

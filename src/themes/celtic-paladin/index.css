@@ -1,0 +1,370 @@
+.theme-celtic-paladin {
+  --theme-bg: #e7d6ad;
+  --theme-text: #16211f;
+  --theme-panel: #fff3d4;
+  --theme-accent: #2e5964;
+  --theme-muted: #64706a;
+  --theme-silver: #9fb0bd;
+  --theme-forest: #1f4f3e;
+  --phone-bg: var(--theme-bg);
+  --phone-text: var(--theme-text);
+  --panel-bg: var(--theme-panel);
+  --accent: var(--theme-accent);
+  background:
+    radial-gradient(circle at 82% 12%, color-mix(in srgb, var(--theme-silver) 22%, transparent), transparent 26%),
+    radial-gradient(circle at 14% 80%, color-mix(in srgb, var(--theme-forest) 18%, transparent), transparent 30%),
+    linear-gradient(135deg, color-mix(in srgb, var(--theme-panel) 74%, var(--theme-bg)), var(--theme-bg));
+  color: var(--theme-text);
+}
+
+.theme-celtic-paladin .phone-shell {
+  border-color: color-mix(in srgb, var(--theme-text) 90%, black) !important;
+  background: var(--theme-bg);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--theme-panel) 48%, transparent),
+    0 30px 62px rgba(14, 25, 20, 0.34);
+}
+
+.theme-celtic-paladin .cream-screen,
+.theme-celtic-paladin .lock-screen {
+  background:
+    radial-gradient(circle at 14% 14%, color-mix(in srgb, var(--theme-silver) 20%, transparent), transparent 24%),
+    radial-gradient(circle at 86% 86%, color-mix(in srgb, var(--theme-forest) 18%, transparent), transparent 26%),
+    repeating-linear-gradient(90deg, color-mix(in srgb, var(--theme-text) 3%, transparent) 0 1px, transparent 1px 16px),
+    linear-gradient(180deg, var(--theme-panel), var(--theme-bg));
+  color: var(--theme-text);
+}
+
+.theme-celtic-paladin .cream-screen::before,
+.theme-celtic-paladin .lock-screen::before {
+  content: "";
+  pointer-events: none;
+  position: absolute;
+  inset: 16px;
+  border: 1px solid color-mix(in srgb, var(--theme-silver) 46%, transparent);
+  border-radius: 24px;
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--theme-silver) 20%, transparent) 0 1px, transparent 1px) 0 0 / 22px 22px,
+    linear-gradient(0deg, color-mix(in srgb, var(--theme-forest) 12%, transparent) 0 1px, transparent 1px) 0 0 / 22px 22px;
+  opacity: 0.42;
+  mask-image: linear-gradient(180deg, #000 0 18%, transparent 36%, transparent 68%, #000 100%);
+}
+
+.theme-celtic-paladin header,
+.theme-celtic-paladin .wechat-topbar,
+.theme-celtic-paladin .wechat-tabs,
+.theme-celtic-paladin .wechat-chat-header,
+.theme-celtic-paladin .wechat-input-bar {
+  border-color: color-mix(in srgb, var(--theme-text) 16%, transparent) !important;
+  background: color-mix(in srgb, var(--theme-panel) 90%, transparent);
+  color: var(--theme-text);
+}
+
+.theme-celtic-paladin .lock-clock,
+.theme-celtic-paladin .lock-status-row,
+.theme-celtic-paladin .time-text,
+.theme-celtic-paladin h1,
+.theme-celtic-paladin h2,
+.theme-celtic-paladin h3 {
+  color: var(--theme-text);
+  letter-spacing: 0;
+}
+
+.theme-celtic-paladin .lock-clock h1 {
+  text-shadow: 0 1px 0 var(--theme-panel);
+}
+
+.theme-celtic-paladin .image-bed,
+.theme-celtic-paladin .time-card,
+.theme-celtic-paladin .hand-panel,
+.theme-celtic-paladin .theme-card,
+.theme-celtic-paladin .feature-tile,
+.theme-celtic-paladin .custom-widget,
+.theme-celtic-paladin .guide-panel,
+.theme-celtic-paladin .notification-sheet,
+.theme-celtic-paladin .notification-card,
+.theme-celtic-paladin .lock-empty-card,
+.theme-celtic-paladin .hand-note,
+.theme-celtic-paladin .app-chip {
+  border: 1px solid color-mix(in srgb, var(--theme-text) 24%, transparent);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--theme-panel) 96%, white), color-mix(in srgb, var(--theme-bg) 82%, var(--theme-panel))),
+    var(--theme-panel);
+  color: var(--theme-text);
+  box-shadow: 0 10px 20px rgba(24, 38, 32, 0.12);
+}
+
+.theme-celtic-paladin .time-card {
+  border-left: 4px solid var(--theme-accent);
+}
+
+.theme-celtic-paladin .date-text,
+.theme-celtic-paladin .hand-note,
+.theme-celtic-paladin .widget-status,
+.theme-celtic-paladin .notification-body {
+  color: var(--theme-muted);
+}
+
+.theme-celtic-paladin .circle-button,
+.theme-celtic-paladin .save-button,
+.theme-celtic-paladin .pill,
+.theme-celtic-paladin .call-button,
+.theme-celtic-paladin .layout-toggle,
+.theme-celtic-paladin .hand-bubble,
+.theme-celtic-paladin .shell-notification-button,
+.theme-celtic-paladin .lock-unlock-button,
+.theme-celtic-paladin .fetch-button {
+  border: 1px solid color-mix(in srgb, var(--theme-text) 26%, transparent);
+  background: color-mix(in srgb, var(--theme-panel) 88%, var(--theme-bg));
+  color: var(--theme-text);
+  box-shadow: 0 6px 13px rgba(24, 38, 32, 0.11);
+}
+
+.theme-celtic-paladin .fetch-button,
+.theme-celtic-paladin .theme-card.active,
+.theme-celtic-paladin .pill.active,
+.theme-celtic-paladin .layout-toggle.active {
+  border-color: color-mix(in srgb, var(--theme-accent) 54%, var(--theme-text));
+  background: var(--theme-accent);
+  color: var(--theme-panel);
+}
+
+.theme-celtic-paladin .hand-input,
+.theme-celtic-paladin .widget-input,
+.theme-celtic-paladin select,
+.theme-celtic-paladin textarea {
+  border: 1px solid color-mix(in srgb, var(--theme-text) 22%, transparent);
+  background: color-mix(in srgb, var(--theme-panel) 94%, white);
+  color: var(--theme-text);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--theme-panel) 72%, transparent);
+}
+
+.theme-celtic-paladin .hand-input::placeholder,
+.theme-celtic-paladin .widget-input::placeholder,
+.theme-celtic-paladin textarea::placeholder {
+  color: color-mix(in srgb, var(--theme-muted) 78%, transparent);
+}
+
+.theme-celtic-paladin .dock {
+  border: 1px solid color-mix(in srgb, var(--theme-text) 24%, transparent);
+  background: color-mix(in srgb, var(--theme-panel) 84%, transparent);
+  backdrop-filter: blur(18px);
+}
+
+.theme-celtic-paladin .app-icon,
+.theme-celtic-paladin .dock-icon {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--theme-text) 28%, transparent);
+  background:
+    radial-gradient(circle at 72% 20%, color-mix(in srgb, var(--theme-panel) 82%, transparent), transparent 30%),
+    color-mix(in srgb, var(--theme-bg) 70%, var(--theme-panel));
+  color: var(--theme-text);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--theme-panel) 66%, transparent), 0 8px 18px rgba(24, 38, 32, 0.14);
+}
+
+.theme-celtic-paladin .app-icon svg,
+.theme-celtic-paladin .dock-icon svg {
+  opacity: 0;
+}
+
+.theme-celtic-paladin .app-icon::before,
+.theme-celtic-paladin .dock-icon::before {
+  content: "";
+  position: absolute;
+  inset: 11px;
+  display: grid;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--theme-accent) 34%, transparent);
+  border-radius: 12px;
+  color: var(--theme-text);
+  font-size: 18px;
+  font-weight: 900;
+  line-height: 1;
+  background: color-mix(in srgb, var(--theme-panel) 64%, transparent);
+}
+
+.theme-celtic-paladin .app-icon::after,
+.theme-celtic-paladin .dock-icon::after {
+  content: "";
+  position: absolute;
+  inset: 6px;
+  border: 1px solid color-mix(in srgb, var(--theme-accent) 22%, transparent);
+  border-radius: 16px;
+}
+
+.theme-celtic-paladin .app-icon[data-screen="wechat"]::before { content: "ᚹ"; }
+.theme-celtic-paladin .app-icon[data-screen="qq"]::before { content: "ᚲ"; }
+.theme-celtic-paladin .app-icon[data-screen="gallery"]::before { content: "ᚷ"; }
+.theme-celtic-paladin .app-icon[data-screen="calendar"]::before { content: "ᛞ"; }
+.theme-celtic-paladin .app-icon[data-screen="diary"]::before { content: "ᛒ"; }
+.theme-celtic-paladin .app-icon[data-screen="memo"]::before { content: "ᛗ"; }
+.theme-celtic-paladin .app-icon[data-screen="peek"]::before { content: "ᛟ"; }
+.theme-celtic-paladin .app-icon[data-screen="xiaohongshu"]::before { content: "ᛃ"; }
+.theme-celtic-paladin .app-icon[data-screen="bilibili"]::before { content: "ᛇ"; }
+.theme-celtic-paladin .app-icon[data-screen="theater"]::before { content: "ᚦ"; }
+.theme-celtic-paladin .app-icon[data-screen="music"]::before { content: "ᚾ"; }
+.theme-celtic-paladin .app-icon[data-screen="browser"]::before { content: "ᚱ"; }
+.theme-celtic-paladin .app-icon[data-screen="presets"]::before { content: "ᛉ"; }
+.theme-celtic-paladin .app-icon[data-screen="ai-context"]::before { content: "ᚨ"; }
+.theme-celtic-paladin .app-icon[data-screen="logs"]::before { content: "ᛚ"; }
+.theme-celtic-paladin .app-icon[data-screen="active-events"]::before,
+.theme-celtic-paladin .app-icon[data-screen="char-active"]::before { content: "ᛋ"; }
+.theme-celtic-paladin .dock-icon[data-screen="phone"]::before { content: "ᛈ"; }
+.theme-celtic-paladin .dock-icon[data-screen="settings"]::before { content: "ᛏ"; }
+.theme-celtic-paladin .dock-icon[data-screen="contacts"]::before { content: "ᛖ"; }
+.theme-celtic-paladin .dock-icon[data-screen="themes"]::before { content: "ᛝ"; }
+
+.theme-celtic-paladin .app-icon[data-screen="music"]::after {
+  inset: auto 12px 13px 12px;
+  height: 6px;
+  border: 0;
+  border-radius: 999px;
+  background:
+    radial-gradient(circle at 20% 50%, var(--theme-panel) 0 2px, transparent 2px),
+    radial-gradient(circle at 50% 50%, var(--theme-panel) 0 2px, transparent 2px),
+    radial-gradient(circle at 76% 50%, var(--theme-panel) 0 2px, transparent 2px),
+    var(--theme-accent);
+}
+
+.theme-celtic-paladin .app-label,
+.theme-celtic-paladin .dock span:last-child {
+  color: var(--theme-text);
+  text-shadow: 0 1px 0 color-mix(in srgb, var(--theme-panel) 75%, transparent);
+}
+
+.theme-celtic-paladin .shell-badge,
+.theme-celtic-paladin .dock-badge,
+.theme-celtic-paladin .notification-count {
+  border-color: var(--theme-panel);
+  background: var(--theme-accent);
+  color: var(--theme-panel);
+}
+
+.theme-celtic-paladin .wechat-shell,
+.theme-celtic-paladin .wechat-chat-screen {
+  --wechat-bg: var(--theme-bg);
+  --wechat-surface: var(--theme-panel);
+  --wechat-surface-2: color-mix(in srgb, var(--theme-muted) 14%, var(--theme-panel));
+  --wechat-text: var(--theme-text);
+  --wechat-muted: var(--theme-muted);
+  --wechat-line: color-mix(in srgb, var(--theme-text) 13%, transparent);
+  --wechat-active: var(--theme-accent);
+  --wechat-active-text: var(--theme-panel);
+  --wechat-user-bubble: color-mix(in srgb, var(--theme-accent) 20%, var(--theme-panel));
+  --wechat-model-bubble: var(--theme-panel);
+  --wechat-badge: var(--theme-accent);
+}
+
+.theme-celtic-paladin .wechat-page,
+.theme-celtic-paladin .wechat-message-list {
+  background:
+    repeating-linear-gradient(90deg, color-mix(in srgb, var(--theme-text) 2.4%, transparent) 0 1px, transparent 1px 16px),
+    var(--theme-bg);
+}
+
+.theme-celtic-paladin .wechat-chat-row,
+.theme-celtic-paladin .wechat-contact-row,
+.theme-celtic-paladin .wechat-menu-row,
+.theme-celtic-paladin .wechat-empty-card,
+.theme-celtic-paladin .wechat-me-hero,
+.theme-celtic-paladin .wechat-photo-wall,
+.theme-celtic-paladin .wechat-plus-panel,
+.theme-celtic-paladin .wechat-plus-action,
+.theme-celtic-paladin .wechat-input-bar .hand-input,
+.theme-celtic-paladin .wechat-input-bar .circle-button {
+  border-color: color-mix(in srgb, var(--theme-text) 16%, transparent) !important;
+  background: color-mix(in srgb, var(--theme-panel) 88%, var(--theme-bg)) !important;
+  color: var(--theme-text) !important;
+}
+
+.theme-celtic-paladin .wechat-text-model,
+.theme-celtic-paladin .wechat-voice-model {
+  border: 1px solid color-mix(in srgb, var(--theme-text) 14%, transparent);
+  background: var(--theme-panel) !important;
+  color: var(--theme-text) !important;
+}
+
+.theme-celtic-paladin .wechat-text-user,
+.theme-celtic-paladin .wechat-voice-user {
+  border: 1px solid color-mix(in srgb, var(--theme-accent) 26%, transparent);
+  background: color-mix(in srgb, var(--theme-accent) 22%, var(--theme-panel)) !important;
+  color: var(--theme-text) !important;
+}
+
+.theme-celtic-paladin .wechat-tab-button.active,
+.theme-celtic-paladin .wechat-profile-status,
+.theme-celtic-paladin .wechat-mini-button,
+.theme-celtic-paladin .wechat-icon-button,
+.theme-celtic-paladin .wechat-input-bar .wechat-compose-button-active,
+.theme-celtic-paladin .wechat-input-bar .wechat-compose-send {
+  background: var(--theme-accent) !important;
+  color: var(--theme-panel) !important;
+}
+
+.theme-celtic-paladin .xhs-app {
+  --xhs-bg: var(--theme-bg);
+  --xhs-surface: var(--theme-panel);
+  --xhs-surface-2: color-mix(in srgb, var(--theme-muted) 13%, var(--theme-panel));
+  --xhs-text: var(--theme-text);
+  --xhs-muted: var(--theme-muted);
+  --xhs-line: color-mix(in srgb, var(--theme-text) 13%, transparent);
+  --xhs-accent: var(--theme-accent);
+  background:
+    repeating-linear-gradient(90deg, color-mix(in srgb, var(--theme-text) 2%, transparent) 0 1px, transparent 1px 16px),
+    var(--theme-bg) !important;
+  color: var(--theme-text) !important;
+}
+
+.theme-celtic-paladin .xhs-topbar,
+.theme-celtic-paladin .xhs-bottom,
+.theme-celtic-paladin .xhs-surface,
+.theme-celtic-paladin .xhs-note-card,
+.theme-celtic-paladin .xhs-detail,
+.theme-celtic-paladin .xhs-input,
+.theme-celtic-paladin .xhs-refresh-button,
+.theme-celtic-paladin .xhs-icon-button,
+.theme-celtic-paladin .xhs-soft,
+.theme-celtic-paladin .xhs-tag,
+.theme-celtic-paladin .xhs-following {
+  border-color: color-mix(in srgb, var(--theme-text) 16%, transparent) !important;
+  background: color-mix(in srgb, var(--theme-panel) 88%, var(--theme-bg)) !important;
+  color: var(--theme-text) !important;
+}
+
+.theme-celtic-paladin .xhs-primary-button,
+.theme-celtic-paladin .xhs-tag-active,
+.theme-celtic-paladin .xhs-tab-line {
+  background: var(--theme-accent) !important;
+  color: var(--theme-panel) !important;
+}
+
+.theme-celtic-paladin .xhs-title,
+.theme-celtic-paladin .xhs-app h1,
+.theme-celtic-paladin .xhs-app h2,
+.theme-celtic-paladin .xhs-tab.active {
+  color: var(--theme-text) !important;
+}
+
+.theme-celtic-paladin .xhs-muted,
+.theme-celtic-paladin .xhs-tab,
+.theme-celtic-paladin .xhs-bottom {
+  color: var(--theme-muted) !important;
+}
+
+.theme-celtic-paladin .lock-screen.has-default-lock-art {
+  background:
+    radial-gradient(circle at 78% 16%, color-mix(in srgb, var(--theme-silver) 26%, transparent), transparent 25%),
+    linear-gradient(135deg, color-mix(in srgb, var(--theme-forest) 16%, transparent), transparent 35%),
+    repeating-linear-gradient(45deg, color-mix(in srgb, var(--theme-text) 4%, transparent) 0 2px, transparent 2px 18px),
+    linear-gradient(180deg, var(--theme-panel), var(--theme-bg));
+}
+
+.theme-celtic-paladin .lock-clock h1 {
+  color: var(--theme-text);
+  text-shadow: 0 2px 0 var(--theme-silver);
+}
+
+.theme-celtic-paladin .lock-empty-card {
+  border-color: color-mix(in srgb, var(--theme-silver) 58%, var(--theme-text));
+}

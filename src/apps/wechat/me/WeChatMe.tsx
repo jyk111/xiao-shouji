@@ -269,23 +269,23 @@ export function WeChatMe() {
           <span className="wechat-color-icon yellow"><Star className="h-5 w-5" /></span>
           <span>收藏</span>
           <span className="wechat-row-meta">{favoriteMessages.length + favoriteStickers.length}项</span>
-          <ChevronRight className="h-5 w-5 text-[#555]" />
+          <ChevronRight className="wechat-row-chevron h-5 w-5" />
         </button>
         <button type="button" className="wechat-menu-row">
           <span className="wechat-color-icon green"><Sparkles className="h-5 w-5" /></span>
           <span>服务</span>
-          <ChevronRight className="ml-auto h-5 w-5 text-[#555]" />
+          <ChevronRight className="wechat-row-chevron ml-auto h-5 w-5" />
         </button>
         <button type="button" onClick={() => setMeView('orders')} className="wechat-menu-row">
           <span className="wechat-color-icon red"><ShoppingBag className="h-5 w-5" /></span>
           <span>订单与卡包</span>
           <span className="wechat-row-meta">{purchaseRecords.length}条</span>
-          <ChevronRight className="ml-auto h-5 w-5 text-[#555]" />
+          <ChevronRight className="wechat-row-chevron ml-auto h-5 w-5" />
         </button>
         <button type="button" onClick={() => setMeView('settings')} className="wechat-menu-row">
           <span className="wechat-color-icon blue"><Settings className="h-5 w-5" /></span>
           <span>设置</span>
-          <ChevronRight className="ml-auto h-5 w-5 text-[#555]" />
+          <ChevronRight className="wechat-row-chevron ml-auto h-5 w-5" />
         </button>
       </div>
     </div>

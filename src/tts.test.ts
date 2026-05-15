@@ -45,6 +45,24 @@ assert.equal(local?.url, 'http://127.0.0.1:9880/tts');
 assert.equal(local?.responseType, 'auto');
 assert.equal(JSON.parse(String(local?.init.body)).voiceId, 'char-a');
 
+const minimax = buildExternalTtsRequest(
+  {
+    ...defaultTtsConfig,
+    provider: 'minimax',
+    apiKey: 'mini-key',
+    model: 'speech-2.8-hd',
+    voiceId: 'female-shaonv',
+  },
+  'MiniMax 试听。',
+);
+const minimaxBody = JSON.parse(String(minimax?.init.body));
+assert.equal(minimax?.url, 'https://api.minimax.io/v1/t2a_v2');
+assert.equal(minimax?.responseType, 'minimax-json');
+assert.equal(minimax?.init.headers.Authorization, 'Bearer mini-key');
+assert.equal(minimaxBody.model, 'speech-2.8-hd');
+assert.equal(minimaxBody.voice_setting.voice_id, 'female-shaonv');
+assert.equal(minimaxBody.audio_setting.format, 'mp3');
+
 assert.equal(buildExternalTtsRequest({ ...defaultTtsConfig, provider: 'browser' }, '免费浏览器语音'), null);
 
 console.log('tts request builders ok');

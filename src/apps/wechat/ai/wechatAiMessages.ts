@@ -3,9 +3,10 @@ export type WeChatAiParsedPart =
   | { kind: 'sticker'; mood?: string; label?: string }
   | { kind: 'transfer'; amount: string; note?: string }
   | { kind: 'red-packet'; amount?: string; note?: string }
-  | { kind: 'shopping'; itemName: string; amount?: string; note?: string };
+  | { kind: 'shopping'; itemName: string; amount?: string; note?: string }
+  | { kind: 'image'; prompt: string; label?: string };
 
-const actionLinePattern = /^\[(sticker|transfer|red-packet|shopping)(?:\s+([^\]]+))?\]$/;
+const actionLinePattern = /^\[(sticker|transfer|red-packet|shopping|image)(?:\s+([^\]]+))?\]$/;
 const pairPattern = /(\w[\w-]*)=(?:"([^"]*)"|'([^']*)'|([^\s]+))/g;
 
 function parsePairs(input = '') {
@@ -58,6 +59,16 @@ function parseActionLine(line: string): WeChatAiParsedPart | null {
     };
   }
 
+  if (action === 'image') {
+    const prompt = pairs.prompt || pairs.desc || pairs.description;
+    if (!prompt) return null;
+    return {
+      kind: 'image',
+      prompt,
+      label: pairs.label || undefined,
+    };
+  }
+
   return null;
 }
 
@@ -81,5 +92,6 @@ export function describeWeChatAiPart(part: WeChatAiParsedPart) {
   if (part.kind === 'transfer') return `转账：${part.amount}${part.note ? `，${part.note}` : ''}`;
   if (part.kind === 'red-packet') return `红包：${part.amount || '未填金额'}${part.note ? `，${part.note}` : ''}`;
   if (part.kind === 'shopping') return `购物：${part.itemName}${part.amount ? `，${part.amount}` : ''}${part.note ? `，${part.note}` : ''}`;
+  if (part.kind === 'image') return `图片：${part.label || part.prompt}`;
   return part.content;
 }

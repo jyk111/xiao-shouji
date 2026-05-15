@@ -7,11 +7,12 @@
 - char 日记：选择角色后让 TA 自己生成日记，列表展示，点进去看全文，详情页支持收藏和删除。
 - 收藏：作为 `char日记` 旁边的独立页签，只收纳已收藏的 char 日记，并按不同 char 分组展示。
 - 日记新增/编辑/删除：`useAppStore.addDiary`、`useAppStore.updateDiary`、`useAppStore.deleteDiary`
-- 查手机里读取日记摘要：`PeekScreen`
+- 查手机里查看角色自己的手机：`PeekScreen`，跨 App 角色手机生成/读取逻辑在 `src/apps/peek/peekLogic.ts`
 
 相关状态：
 
 - `src/store.ts`：`DiaryEntry[] diaries`
+- `src/apps/peek/peekLogic.ts`：按角色生成/汇总 TA 自己手机里的聊天、日记、相册、日历、备忘、浏览器、小红书和音乐摘要与详情条目；`PeekScreen` 首页模块可点进二级界面查看具体内容，不把用户日记或用户相册当成角色手机内容。
 - `src/index.css`：复用通用 `hand-panel`、`hand-input`、`fetch-button`
 - `docs/diary-plan.md`：日记模块详细构建思路。
 

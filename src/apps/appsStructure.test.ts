@@ -18,6 +18,7 @@ const requiredApps = [
   'theater',
   'calendar',
   'diary',
+  'peek',
   'memo',
   'browser',
   'qq',
@@ -27,6 +28,7 @@ const requiredApps = [
   'presets',
   'logs',
   'ai-context',
+  'active-events',
   'contacts',
 ];
 
@@ -49,6 +51,8 @@ assert(existsSync(join(appsDir, 'theater', 'TheaterScreen.tsx')), 'Theater scree
 assert(existsSync(join(appsDir, 'calendar', 'CalendarScreen.tsx')), 'Calendar screen must live under src/apps/calendar');
 assert(existsSync(join(appsDir, 'diary', 'DiaryScreen.tsx')), 'Diary screen must live under src/apps/diary');
 assert(existsSync(join(appsDir, 'diary', 'PeekScreen.tsx')), 'Peek screen must live under src/apps/diary');
+assert(existsSync(join(appsDir, 'peek', 'peekLogic.ts')), 'Peek readable summary logic must live under src/apps/peek');
+assert(existsSync(join(appsDir, 'peek', 'peekLogic.test.ts')), 'Peek readable summary tests must live under src/apps/peek');
 assert(existsSync(join(appsDir, 'memo', 'MemoScreen.tsx')), 'Memo screen must live under src/apps/memo');
 assert(existsSync(join(appsDir, 'browser', 'BrowserScreen.tsx')), 'Browser screen must live under src/apps/browser');
 assert(existsSync(join(appsDir, 'qq', 'QQScreen.tsx')), 'QQ screen must live under src/apps/qq');
@@ -58,6 +62,8 @@ assert(existsSync(join(appsDir, 'themes', 'ThemesScreen.tsx')), 'Themes screen m
 assert(existsSync(join(appsDir, 'presets', 'PresetsScreen.tsx')), 'Presets screen must live under src/apps/presets');
 assert(existsSync(join(appsDir, 'logs', 'LogsScreen.tsx')), 'Logs screen must live under src/apps/logs');
 assert(existsSync(join(appsDir, 'ai-context', 'AIContextScreen.tsx')), 'AI context screen must live under src/apps/ai-context');
+assert(existsSync(join(appsDir, 'active-events', 'ActiveEventsScreen.tsx')), 'Active events screen must live under src/apps/active-events');
+assert(existsSync(join(appsDir, 'active-events', 'activeEventsLogic.ts')), 'Active event logic must live under src/apps/active-events');
 assert(existsSync(join(appsDir, 'contacts', 'ContactsScreen.tsx')), 'Contacts screen must live under src/apps/contacts');
 
 console.log('apps folder structure ok');

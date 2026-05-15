@@ -76,6 +76,7 @@ async function requestPhoneLine({
   character,
   transcript,
   userDraft,
+  presetPrompt,
 }: {
   baseUrl: string;
   apiKey: string;
@@ -83,6 +84,7 @@ async function requestPhoneLine({
   character: Character;
   transcript: PhoneCallTranscriptLine[];
   userDraft: string;
+  presetPrompt: string;
 }) {
   const endpoint = `${normalizeApiBaseUrl(baseUrl)}/chat/completions`;
   const history = transcript
@@ -105,6 +107,7 @@ async function requestPhoneLine({
           content: [
             getCharacterPhonePrompt(character) || `你是${character.name}。`,
             '现在是手机电话，不是聊天软件。只输出一句听筒里的口语回复，短、自然、有停顿感。',
+            presetPrompt,
             '不要写旁白、动作描写、括号、编号、长篇解释。',
           ].join('\n'),
         },
@@ -167,6 +170,7 @@ export function PhoneScreen() {
     apiBaseUrl,
     apiKey,
     selectedModel,
+    phonePresetPrompt,
     ttsEnabled,
     ttsConfig,
     addPhoneCallRecord,
@@ -295,6 +299,7 @@ export function PhoneScreen() {
           character: liveCharacter,
           transcript: baseTranscript,
           userDraft: draft,
+          presetPrompt: phonePresetPrompt,
         });
       }
       const finalText = text || fallbackPhoneLine(liveCharacter, baseTranscript);

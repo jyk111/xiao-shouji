@@ -179,8 +179,8 @@ export function WeChatContacts() {
               }}
               className="min-w-0 flex-1 text-left"
             >
-              <p className="truncate text-[16px] font-semibold text-[#e7e7e7]">{group.name}</p>
-              <p className="truncate text-xs text-[#777]">{group.memberIds.length}个成员 · 点开聊天</p>
+              <p className="wechat-row-title small">{group.name}</p>
+              <p className="wechat-row-preview compact">{group.memberIds.length}个成员 · 点开聊天</p>
             </button>
             <button
               type="button"
@@ -212,8 +212,8 @@ export function WeChatContacts() {
           <div key={character.id} className="wechat-contact-row">
             <WeChatAvatar src={character.avatar} name={character.name} />
             <button type="button" onClick={() => !showTagEditor && setProfileId(character.id)} className="min-w-0 flex-1 text-left">
-              <p className="truncate text-[16px] font-semibold text-[#e7e7e7]">{character.name}</p>
-              {contactTags[character.id]?.length > 0 && <p className="line-clamp-1 text-xs text-[#777]">标签：{contactTags[character.id].join('、')}</p>}
+              <p className="wechat-row-title small">{character.name}</p>
+              {contactTags[character.id]?.length > 0 && <p className="wechat-row-preview compact line-clamp-1">标签：{contactTags[character.id].join('、')}</p>}
               {showTagEditor && (
                 <input
                   value={contactTags[character.id]?.join('、') || ''}

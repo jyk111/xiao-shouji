@@ -1,9 +1,16 @@
 <!--
 Module doc for Diary.
 Sections: build goal, data model, UI flow, AI behavior, next implementation steps.
-Dependencies: src/App.tsx DiaryScreen/PeekScreen, src/store.ts diaries, src/index.css shared panels.
+Dependencies: src/App.tsx DiaryScreen/PeekScreen, src/apps/peek/peekLogic.ts, src/store.ts diaries, src/index.css shared panels.
 Maintenance note: update this file whenever diary data structure or diary UI changes.
 -->
+
+## 2026-05-10 查手机角色手机视角
+
+- `PeekScreen` 仍是查手机 UI 入口，跨 App 角色手机生成/读取规则拆到 `src/apps/peek/peekLogic.ts`。
+- 查手机是查看角色自己的手机，不是查看用户手机里哪些内容能给角色看。页面按选中 char 展示 TA 手机里的最近聊天、日记、相册、日历、备忘、浏览器、小红书和音乐摘要。
+- 查手机首页每个模块都应可点进二级界面，看到类似手机 App 的具体内容，而不是只停留在摘要行。
+- 日记读取只展示明确属于该 char 的 char 日记；没有明确记录时生成 TA 手机里的日记痕迹摘要，不把用户日记当成角色手机内容。
 
 # 日记模块详细构建思路
 

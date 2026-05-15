@@ -16,6 +16,7 @@ import {
   RefreshCw,
   Search,
   Settings2,
+  Sparkles,
   Trash2,
   UserPlus,
   UserRound,
@@ -23,6 +24,7 @@ import {
 import { useMemo, useRef, useState } from 'react';
 import { useAppStore } from '../../store';
 import { cn } from '../../lib/utils';
+import { buildNovelAiPrompt, requestNaiImage } from '../../lib/naiImage';
 import type { XiaohongshuNote } from './types';
 import {
   buildGeneratedXiaohongshuNotes,
@@ -164,6 +166,7 @@ export function XiaohongshuApp() {
     xiaohongshuProfile,
     xiaohongshuNotes,
     xiaohongshuFollowingIds,
+    xiaohongshuPresetPrompt,
     setXiaohongshuProfile,
     addXiaohongshuNote,
     deleteXiaohongshuNote,
@@ -171,6 +174,9 @@ export function XiaohongshuApp() {
     toggleXiaohongshuFollow,
     replaceXiaohongshuGeneratedNotes,
     addGalleryPhoto,
+    imageGenerationConfig,
+    addAppLog,
+    goBack,
   } = useAppStore();
   const [view, setView] = useState<ViewMode>('feed');
   const [homeTab, setHomeTab] = useState<XiaohongshuHomeTab>('recommend');
@@ -184,6 +190,9 @@ export function XiaohongshuApp() {
     styleTags: xiaohongshuProfile.styleTags.join(' '),
   });
   const [refreshHint, setRefreshHint] = useState('');
+  const [imagePrompt, setImagePrompt] = useState('');
+  const [imageStatus, setImageStatus] = useState('');
+  const [generatingImage, setGeneratingImage] = useState(false);
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const noteImageInputRef = useRef<HTMLInputElement>(null);
 
@@ -218,6 +227,7 @@ export function XiaohongshuApp() {
       },
       browserWorldBook,
       galleryPhotos,
+      presetPrompt: xiaohongshuPresetPrompt,
     });
     replaceXiaohongshuGeneratedNotes(generated);
     setRefreshHint(`已刷新 ${generated.length} 条角色和世界笔记`);
@@ -288,6 +298,48 @@ export function XiaohongshuApp() {
     reader.readAsDataURL(file);
   };
 
+  const generateNoteImage = async () => {
+    if (generatingImage) return;
+    const prompt = imagePrompt.trim()
+      || [
+        draft.title.trim(),
+        draft.content.trim().slice(0, 120),
+        draft.tags.trim(),
+        draft.mood.trim(),
+        draft.location.trim(),
+      ].filter(Boolean).join('，');
+    if (!prompt) {
+      setImageStatus('先写标题、正文或图片提示词。');
+      return;
+    }
+    setGeneratingImage(true);
+    setImageStatus('正在生成封面...');
+    try {
+      const imageUrl = await requestNaiImage({
+        config: imageGenerationConfig,
+        prompt: buildNovelAiPrompt(prompt, 'xiaohongshu'),
+      });
+      addGalleryPhoto({
+        url: imageUrl,
+        title: draft.title.trim() || '小红书 AI 封面',
+        description: prompt,
+        album: '生活',
+        tags: [...splitTags(draft.tags), 'AI生图'],
+        source: 'generated',
+        readableByChar: true,
+      });
+      setDraft((current) => ({ ...current, imageUrl }));
+      setImageStatus('已生成封面，并同步进相册。');
+      addAppLog({ type: 'image', title: '小红书 NAI 生图成功', detail: prompt });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '小红书生图失败';
+      setImageStatus(message);
+      addAppLog({ type: 'error', title: '小红书 NAI 生图失败', detail: message });
+    } finally {
+      setGeneratingImage(false);
+    }
+  };
+
   const openDetail = (note: XiaohongshuNote) => {
     setActiveId(note.id);
     setView('detail');
@@ -326,11 +378,11 @@ export function XiaohongshuApp() {
         <div className="flex items-center gap-3">
           <button
             type="button"
-            onClick={() => (view === 'feed' ? setView('profile') : setView('feed'))}
+            onClick={() => (view === 'feed' ? goBack() : setView('feed'))}
             className="xhs-icon-button grid h-9 w-9 place-items-center rounded-full bg-[#f6f6f6] text-[#333]"
-            aria-label={view === 'feed' ? '我的主页' : '返回'}
+            aria-label="返回"
           >
-            {view === 'feed' ? <UserRound className="h-4 w-4" /> : <ArrowLeft className="h-4 w-4" />}
+            <ArrowLeft className="h-4 w-4" />
           </button>
           <div className="min-w-0 flex-1">
             <div className="mx-auto flex w-fit items-center gap-6 text-[15px] font-black">
@@ -513,15 +565,33 @@ export function XiaohongshuApp() {
             <div className="xhs-surface rounded-[12px] bg-white p-3">
               <div className="mb-2 flex items-center justify-between">
                 <p className="text-sm font-black">图片</p>
-                <button
-                  type="button"
-                  onClick={() => noteImageInputRef.current?.click()}
-                  className="xhs-icon-button inline-flex items-center gap-1 rounded-full bg-[#f6f6f6] px-2.5 py-1.5 text-xs font-bold text-[#555]"
-                >
-                  <Camera className="h-3.5 w-3.5" />
-                  从相册/本机选
-                </button>
+                <div className="flex gap-1.5">
+                  <button
+                    type="button"
+                    onClick={generateNoteImage}
+                    disabled={generatingImage}
+                    className="xhs-icon-button inline-flex items-center gap-1 rounded-full bg-[#f6f6f6] px-2.5 py-1.5 text-xs font-bold text-[#555]"
+                  >
+                    {generatingImage ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+                    NAI
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => noteImageInputRef.current?.click()}
+                    className="xhs-icon-button inline-flex items-center gap-1 rounded-full bg-[#f6f6f6] px-2.5 py-1.5 text-xs font-bold text-[#555]"
+                  >
+                    <Camera className="h-3.5 w-3.5" />
+                    选图
+                  </button>
+                </div>
               </div>
+              <input
+                value={imagePrompt}
+                onChange={(event) => setImagePrompt(event.target.value)}
+                className="xhs-input mb-2 w-full rounded-[10px] bg-[#f6f6f6] px-3 py-2 text-xs outline-none"
+                placeholder="可选：单独写封面提示词"
+              />
+              {imageStatus && <p className="xhs-muted mb-2 text-xs font-bold text-[#777]">{imageStatus}</p>}
               {selectedImage ? (
                 <button
                   type="button"

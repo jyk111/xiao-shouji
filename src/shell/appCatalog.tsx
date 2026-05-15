@@ -12,6 +12,7 @@ import {
   Clapperboard,
   FileText,
   Image as ImageIcon,
+  Import,
   LockKeyhole,
   MessageCircle,
   Music,
@@ -61,6 +62,8 @@ export const pageApps: DesktopCatalogApp[] = [
   { id: 'presets', page: 1, screen: 'presets', label: '预设', icon: <Shield />, color: 'bg-[#f4edbd]', x: 104, y: 132 },
   { id: 'ai-context', page: 1, screen: 'ai-context', label: 'AI上下文', icon: <Sparkles />, color: 'bg-[#dceecd]', x: 184, y: 132 },
   { id: 'logs', page: 1, screen: 'logs', label: '报错', icon: <FileText />, color: 'bg-[#ffd6d6]', x: 264, y: 132 },
+  { id: 'char-active', page: 1, screen: 'char-active', label: 'char主动', icon: <Sparkles />, color: 'bg-[#efe7a9]', x: 24, y: 240 },
+  { id: 'backup', page: 1, screen: 'backup', label: '数据备份', icon: <Import />, color: 'bg-[#dceecd]', x: 104, y: 240 },
 ];
 
 export const dockApps: DockCatalogApp[] = [

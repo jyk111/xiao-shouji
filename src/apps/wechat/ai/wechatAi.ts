@@ -8,6 +8,7 @@ export const weChatLifeActionInstruction = [
   '[transfer amount=188 note=晚饭钱] 表示主动转账。',
   '[red-packet amount=52 note=买点甜的] 表示主动发红包。',
   '[shopping item=奶茶 amount=18 note=我下单了] 表示买了东西或下单。',
+  '[image prompt="窗边一杯热茶"] 表示主动发一张 AI 图片；只在用户明确要图、分享场景或你真的想发图时使用。',
   '生活动作必须有真实动机，不能刷屏，不能像客服或系统通知。',
 ].join('\n');
 

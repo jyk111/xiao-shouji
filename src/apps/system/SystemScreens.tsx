@@ -18,6 +18,7 @@ import {
   Settings,
   Shield,
   Sparkles,
+  Users,
   Zap,
 } from 'lucide-react';
 import React, { useEffect, useRef, useState } from 'react';
@@ -31,11 +32,8 @@ import type { XiaohongshuNote } from '../xiaohongshu/types';
 import { buildXiaohongshuContext } from '../xiaohongshu/xiaohongshuLogic';
 import { Header, Panel, Pill, Field, Row, Empty, Avatar } from '../shared/AppPrimitives';
 import { describeChatMessage } from '../shared/aiText';
-
-const themeOptions = [
-  { id: 'pastel' as const, name: '奶油手绘', desc: '粗描边、浅色块、正常手机桌面。' },
-  { id: 'gothic' as const, name: '哥特玻璃', desc: '参考图二的灰黑玻璃手机，叠加红黑素材纹理。' },
-];
+import { themeOptions } from '../../themes/themeOptions';
+import { appPresetDefinitions, roleMap, type AppPresetEntry, type AppPresetKey, type GeminiPresetRole } from '../../presets/softwarePresets';
 
 const presetCards = [
   ['手机沉浸破限预设', '允许模拟微信、QQ、电话、日记、查手机等手机行为。'],
@@ -90,9 +88,13 @@ export function SettingsScreen() {
     selectedModel,
     setModelConfig,
     setAvailableModels,
+    imageGenerationConfig,
+    setImageGenerationConfig,
+    communityVerificationConfig,
+    setCommunityVerificationConfig,
     addAppLog,
   } = useAppStore();
-  const [tab, setTab] = useState<'model' | 'tts' | 'image'>('model');
+  const [tab, setTab] = useState<'model' | 'tts' | 'image' | 'community'>('model');
   const [modelStatus, setModelStatus] = useState('');
   const [saveStatus, setSaveStatus] = useState('');
   const [modelPulled, setModelPulled] = useState(false);
@@ -132,6 +134,7 @@ export function SettingsScreen() {
             <Pill active={tab === 'model'} icon={<Settings />} label="文本大模型" onClick={() => setTab('model')} />
             <Pill active={tab === 'tts'} icon={<Mic />} label="TTS 语音" onClick={() => setTab('tts')} />
             <Pill active={tab === 'image'} icon={<Palette />} label="生图配置" onClick={() => setTab('image')} />
+            <Pill active={tab === 'community'} icon={<Shield />} label="社区验证" onClick={() => setTab('community')} />
           </>
         }
       />
@@ -233,13 +236,117 @@ export function SettingsScreen() {
 
       {tab === 'image' && (
         <Panel>
+          <p className="mb-4 text-sm font-black leading-6 opacity-65">这里保存全局 NAI 生图配置，微信、小红书和主动事件需要图片时会读取这里。</p>
           <Field icon={<Palette />} label="生图接口地址">
-            <input className="hand-input w-full" defaultValue="http://127.0.0.1:7860" />
+            <input
+              value={imageGenerationConfig.baseUrl}
+              onChange={(event) => setImageGenerationConfig({ baseUrl: event.target.value })}
+              className="hand-input w-full"
+              placeholder="https://image.novelai.net/ai/generate-image"
+            />
+          </Field>
+          <Field icon={<KeyRound />} label="NAI API Key">
+            <input
+              value={imageGenerationConfig.apiKey}
+              onChange={(event) => setImageGenerationConfig({ apiKey: event.target.value })}
+              className="hand-input w-full"
+              type="password"
+              placeholder="只保存在本机浏览器里"
+            />
+          </Field>
+          <Field icon={<Bot />} label="模型">
+            <input
+              value={imageGenerationConfig.model}
+              onChange={(event) => setImageGenerationConfig({ model: event.target.value })}
+              className="hand-input w-full"
+              placeholder="nai-diffusion-3"
+            />
           </Field>
           <Field icon={<ImageIcon />} label="默认尺寸">
-            <input className="hand-input w-full" defaultValue="768 x 1024" />
+            <div className="grid grid-cols-2 gap-2">
+              <input
+                value={imageGenerationConfig.width}
+                onChange={(event) => setImageGenerationConfig({ width: Number(event.target.value) || 512 })}
+                className="hand-input min-w-0"
+                inputMode="numeric"
+                placeholder="宽"
+              />
+              <input
+                value={imageGenerationConfig.height}
+                onChange={(event) => setImageGenerationConfig({ height: Number(event.target.value) || 512 })}
+                className="hand-input min-w-0"
+                inputMode="numeric"
+                placeholder="高"
+              />
+            </div>
           </Field>
-          <button className="fetch-button mt-2">保存生图配置</button>
+          <div className="grid grid-cols-2 gap-2">
+            <Field icon={<RefreshCw />} label="步数">
+              <input
+                value={imageGenerationConfig.steps}
+                onChange={(event) => setImageGenerationConfig({ steps: Number(event.target.value) || 18 })}
+                className="hand-input w-full"
+                inputMode="numeric"
+              />
+            </Field>
+            <Field icon={<Sparkles />} label="CFG">
+              <input
+                value={imageGenerationConfig.scale}
+                onChange={(event) => setImageGenerationConfig({ scale: Number(event.target.value) || 5 })}
+                className="hand-input w-full"
+                inputMode="decimal"
+              />
+            </Field>
+          </div>
+          <Field icon={<Sparkles />} label="通用正向提示串">
+            <textarea
+              value={imageGenerationConfig.promptPreset}
+              onChange={(event) => setImageGenerationConfig({ promptPreset: event.target.value })}
+              className="hand-input min-h-20 w-full resize-none"
+            />
+          </Field>
+          <Field icon={<FileText />} label="反向提示">
+            <textarea
+              value={imageGenerationConfig.negativePrompt}
+              onChange={(event) => setImageGenerationConfig({ negativePrompt: event.target.value })}
+              className="hand-input min-h-20 w-full resize-none"
+            />
+          </Field>
+        </Panel>
+      )}
+
+      {tab === 'community' && (
+        <Panel>
+          <p className="mb-4 text-sm font-black leading-6 opacity-65">后门码不写入前端或 APK。这里仅填写独立后端服务地址，真正的 48 小时代码和固定维护码都在后端环境变量里。</p>
+          <Field icon={<KeyRound />} label="后门服务地址">
+            <input
+              value={communityVerificationConfig.backdoorApiUrl}
+              onChange={(event) => setCommunityVerificationConfig({ backdoorApiUrl: event.target.value.trim() })}
+              className="hand-input w-full"
+              placeholder="例如：https://your-domain.example"
+            />
+          </Field>
+          <Field icon={<KeyRound />} label="Discord Client ID">
+            <input
+              value={communityVerificationConfig.discordClientId}
+              onChange={(event) => setCommunityVerificationConfig({ discordClientId: event.target.value.trim() })}
+              className="hand-input w-full"
+            />
+          </Field>
+          <Field icon={<Users />} label="Discord Guild ID">
+            <textarea
+              value={communityVerificationConfig.discordGuildIds.join('\n')}
+              onChange={(event) => setCommunityVerificationConfig({ discordGuildIds: event.target.value.split(/[\n,，、]+/).map((item) => item.trim()).filter(Boolean) })}
+              className="hand-input min-h-20 w-full resize-none"
+            />
+          </Field>
+          <Field icon={<Users />} label="需要的社区/身份组名称">
+            <textarea
+              value={communityVerificationConfig.requiredGroups.join('\n')}
+              onChange={(event) => setCommunityVerificationConfig({ requiredGroups: event.target.value.split(/[\n,，、]+/).map((item) => item.trim()).filter(Boolean) })}
+              className="hand-input min-h-20 w-full resize-none"
+            />
+          </Field>
         </Panel>
       )}
 
@@ -731,26 +838,48 @@ export function AIContextScreen() {
   );
 }
 
-const phonePromptBlocks = [
-  { name: 'Main Prompt', role: 'system', position: '顶部', depth: '无', desc: '控制小手机聊天的总规则：自然回复，不复述上下文，不替用户行动。' },
-  { name: 'Character', role: 'system', position: '聊天历史前', depth: '无', desc: '角色卡、人设、性格、开场白、系统提示和角色世界书。' },
-  { name: 'User / Persona', role: 'system', position: '聊天历史前', depth: '无', desc: '用户昵称、状态、关系边界和当前可见的用户资料。' },
-  { name: 'Phone Context', role: 'system', position: '聊天历史前', depth: '无', desc: '当前角色独立的微信、QQ、日记、音乐、浏览等上下文包。' },
-  { name: 'Chat History', role: 'user / assistant', position: '聊天历史', depth: '按设置', desc: '最近聊天记录，按上下文消息数截取。' },
-  { name: 'Current Message', role: 'user', position: '末尾', depth: '无', desc: '用户最新发送的消息。' },
-];
-
-const browserPromptBlocks = [
-  { name: 'Browser System', role: 'system', desc: '你是虚拟手机里的浏览器搜索页。输出严格 JSON，不要 Markdown。' },
-  { name: 'Browser Style', role: 'system', desc: '搜索结果像真实互联网内容，不出现开发说明、example.com、phone://。' },
-  { name: 'Browser Input', role: 'user', desc: '搜索词、浏览器世界书、最近背景摘要。' },
-];
-
 export function PresetsScreen() {
-  const { presetName, setPresetName, browserPresetName, browserPresetPrompt, setModelConfig } = useAppStore();
+  const { presetName, setPresetName, appPresets, setAppPreset, resetAppPreset, resetAllAppPresets } = useAppStore();
+  const [activePresetKey, setActivePresetKey] = useState<AppPresetKey>('wechat');
+  const activeDefinition = appPresetDefinitions.find((item) => item.key === activePresetKey) || appPresetDefinitions[0];
+  const activePreset = appPresets[activePresetKey];
+  const activeEntry = activePreset.entries.find((entry) => entry.id === activePreset.activeEntryId) || activePreset.entries[0];
+  const commitEntries = (entries: AppPresetEntry[], activeEntryId = activePreset.activeEntryId) => {
+    const selected = entries.find((entry) => entry.id === activeEntryId) || entries[0];
+    setAppPreset(activePresetKey, {
+      entries,
+      activeEntryId: selected?.id,
+      name: selected?.name || activePreset.name,
+      prompt: selected?.prompt || activePreset.prompt,
+      role: selected?.role || activePreset.role,
+    });
+  };
+  const updateActiveEntry = (updates: Partial<Omit<AppPresetEntry, 'id'>>) => {
+    const entries = activePreset.entries.map((entry) =>
+      entry.id === activeEntry.id ? { ...entry, ...updates } : entry,
+    );
+    commitEntries(entries, activeEntry.id);
+  };
+  const addEntry = () => {
+    const id = `${activePresetKey}-${Date.now()}`;
+    const entry: AppPresetEntry = {
+      id,
+      name: '新条目',
+      role: 'system',
+      prompt: '',
+    };
+    commitEntries([...activePreset.entries, entry], id);
+  };
+  const deleteEntry = () => {
+    if (activePreset.entries.length <= 1) return;
+    const entries = activePreset.entries.filter((entry) => entry.id !== activeEntry.id);
+    commitEntries(entries, entries[0]?.id);
+  };
+  const selectEntry = (id: string) => commitEntries(activePreset.entries, id);
+
   return (
-    <section className="no-scrollbar h-full overflow-y-auto pb-8">
-      <Header title="预设" subtitle="参考酒馆 Prompt Manager 的块结构" />
+    <section className="no-scrollbar h-full overflow-y-auto px-1 pb-24">
+      <Header title="预设" subtitle="每个软件都有自己的提示词，玩家可以单独改写。" />
       <Panel>
         {presetCards.map(([name, desc]) => (
           <button key={name} onClick={() => setPresetName(name)} className={cn('theme-card mb-3 last:mb-0', presetName === name && 'active')}>
@@ -760,44 +889,97 @@ export function PresetsScreen() {
         ))}
       </Panel>
       <Panel>
-        <p className="text-lg font-black">聊天 Prompt 块</p>
-        <p className="mt-1 text-sm font-bold opacity-65">后续导入酒馆预设时，按 role、顺序、位置和 depth 映射到这些块。</p>
-        <div className="mt-4 overflow-hidden rounded-[18px] border-[3px] border-[#111] bg-white/65">
-          {phonePromptBlocks.map((block) => (
-            <div key={block.name} className="grid grid-cols-[1fr_86px] gap-3 border-b-[2px] border-[#111]/15 p-3 last:border-b-0">
-              <div className="min-w-0">
-                <p className="truncate text-sm font-black">{block.name}</p>
-                <p className="mt-1 text-xs font-bold opacity-60">{block.desc}</p>
-              </div>
-              <div className="text-right text-[11px] font-black opacity-70">
-                <p>{block.role}</p>
-                <p>{block.position}</p>
-                <p>depth: {block.depth}</p>
-              </div>
-            </div>
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-lg font-black">软件预设</p>
+            <p className="mt-1 text-sm font-bold opacity-65">每个软件可以建多条预设，选择当前启用条目，并指定这条内容以什么身份发送。</p>
+          </div>
+          <button type="button" onClick={resetAllAppPresets} className="icon-button h-10 w-10 shrink-0" title="全部恢复默认">
+            <RefreshCw className="h-5 w-5" />
+          </button>
+        </div>
+        <div className="mt-4 grid grid-cols-2 gap-2">
+          {appPresetDefinitions.map((definition) => (
+            <button
+              key={definition.key}
+              type="button"
+              onClick={() => setActivePresetKey(definition.key)}
+              className={cn('rounded-[18px] border-[2px] border-[#111]/20 bg-white/60 p-3 text-left text-sm font-black transition', activePresetKey === definition.key && 'border-[#111] bg-[var(--theme-panel)] shadow-[3px_3px_0_#111]')}
+            >
+              <span className="block truncate">{definition.label}</span>
+              <span className="mt-1 block truncate text-[11px] opacity-55">{appPresets[definition.key]?.name || definition.name}</span>
+            </button>
           ))}
         </div>
-        <p className="mt-3 text-xs font-bold opacity-60">assistant 末尾预填默认关闭。只有用户明确设置“回复开头 / 续写前缀”时，才把 assistant 放在最后。</p>
       </Panel>
       <Panel>
-        <p className="text-lg font-black">浏览器专属预设</p>
-        <p className="mt-1 text-sm font-bold opacity-65">浏览器只生成搜索页，不再使用“用户助手 / AI助手”式 assistant 预填。</p>
-        <div className="mt-4 grid gap-2">
-          {browserPromptBlocks.map((block) => (
-            <div key={block.name} className="rounded-[16px] border-[2px] border-[#111]/20 bg-white/60 p-3">
-              <p className="text-sm font-black">{block.name} · {block.role}</p>
-              <p className="mt-1 text-xs font-bold opacity-60">{block.desc}</p>
-            </div>
-          ))}
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-lg font-black">{activeDefinition.appName}</p>
+            <p className="mt-1 text-sm font-bold opacity-65">{activeDefinition.summary}</p>
+          </div>
+          <button type="button" onClick={() => resetAppPreset(activePresetKey)} className="icon-button h-10 w-10 shrink-0" title="恢复这个软件默认">
+            <RefreshCw className="h-5 w-5" />
+          </button>
         </div>
+
         <Field icon={<Search />} label="预设名称">
-          <input value={browserPresetName} onChange={(event) => setModelConfig({ browserPresetName: event.target.value })} className="hand-input w-full" />
+          <input
+            value={activeEntry.name}
+            onChange={(event) => updateActiveEntry({ name: event.target.value })}
+            className="hand-input w-full"
+          />
         </Field>
+
+        <Field icon={<FileText />} label="条目选择">
+          <div className="grid gap-2">
+            {activePreset.entries.map((entry) => (
+              <button
+                key={entry.id}
+                type="button"
+                onClick={() => selectEntry(entry.id)}
+                className={cn('theme-card p-3 text-left', activeEntry.id === entry.id && 'active')}
+              >
+                <span className="block truncate text-sm font-black">{entry.name}</span>
+                <span className="mt-1 block text-xs font-bold opacity-60">{roleMap[entry.role].label} · {entry.prompt.trim() ? `${entry.prompt.trim().length} 字` : '空内容'}</span>
+              </button>
+            ))}
+          </div>
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <button type="button" onClick={addEntry} className="fetch-button">
+              新增条目
+            </button>
+            <button type="button" onClick={deleteEntry} disabled={activePreset.entries.length <= 1} className="fetch-button disabled:opacity-45">
+              删除条目
+            </button>
+          </div>
+        </Field>
+
+        <Field icon={<Bot />} label="这条内容以什么发送">
+          <div className="grid grid-cols-3 gap-2">
+            {(Object.keys(roleMap) as GeminiPresetRole[]).map((role) => (
+              <button
+                key={role}
+                type="button"
+                onClick={() => updateActiveEntry({ role })}
+                className={cn('rounded-[14px] border-[2px] border-[#111]/20 bg-white/60 px-2 py-2 text-xs font-black', activeEntry.role === role && 'border-[#111] bg-[var(--theme-accent)] text-white shadow-[2px_2px_0_#111]')}
+              >
+                {roleMap[role].label}
+              </button>
+            ))}
+          </div>
+          <div className="mt-3 rounded-[16px] border-[2px] border-[#111]/15 bg-white/55 p-3 text-xs font-bold leading-5 opacity-75">
+            <p>OpenAI: {roleMap[activeEntry.role].openAiRole}</p>
+            <p>Gemini: {roleMap[activeEntry.role].geminiRole}</p>
+            <p>{roleMap[activeEntry.role].hint}</p>
+          </div>
+        </Field>
+
         <Field icon={<FileText />} label="预设内容">
           <textarea
-            value={browserPresetPrompt}
-            onChange={(event) => setModelConfig({ browserPresetName: '自定义浏览器预设', browserPresetPrompt: event.target.value })}
-            className="hand-input min-h-40 w-full resize-none"
+            value={activeEntry.prompt}
+            onChange={(event) => updateActiveEntry({ prompt: event.target.value })}
+            className="hand-input min-h-56 w-full resize-y text-sm leading-6"
           />
         </Field>
       </Panel>

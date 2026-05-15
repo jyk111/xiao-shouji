@@ -59,7 +59,7 @@ export function Field({ icon, label, children }: { icon: React.ReactNode; label:
   );
 }
 
-export function Panel({ children, className }: { children: React.ReactNode; className?: string }) {
+export function Panel({ children, className }: { key?: React.Key; children: React.ReactNode; className?: string }) {
   return <div className={cn('hand-panel mx-4 mt-4 p-5', className)}>{children}</div>;
 }
 

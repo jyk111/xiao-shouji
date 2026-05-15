@@ -1,0 +1,13 @@
+node_modules
+mobile-export
+dist
+qa-screenshots
+qa-edge-profile
+*.log
+*.txt
+*.png
+*.apk
+dump-dom.txt
+mobile-preview.html
+char-phone-export
+char-phone-export.zip

@@ -63,10 +63,10 @@ export function WeChatChats({ onAddFriend }: { onAddFriend: () => void }) {
               <WeChatGroupAvatar group={group} characters={characters} />
               <div className="min-w-0 flex-1">
                 <div className="flex items-baseline justify-between gap-3">
-                  <p className="truncate text-[17px] font-semibold text-[#e7e7e7]">{group.name}</p>
-                  <span className="shrink-0 text-xs text-[#777]">{time}</span>
+                  <p className="wechat-row-title">{group.name}</p>
+                  <span className="wechat-row-time">{time}</span>
                 </div>
-                <p className="mt-1 truncate text-[13px] text-[#888]">{preview}</p>
+                <p className="wechat-row-preview">{preview}</p>
               </div>
               {session?.unread ? <span className="wechat-unread-badge">{session.unread}</span> : null}
             </button>
@@ -83,10 +83,10 @@ export function WeChatChats({ onAddFriend }: { onAddFriend: () => void }) {
               <WeChatAvatar src={character.avatar} name={character.name} />
               <div className="min-w-0 flex-1">
                 <div className="flex items-baseline justify-between gap-3">
-                  <p className="truncate text-[17px] font-semibold text-[#e7e7e7]">{character.name}</p>
-                  <span className="shrink-0 text-xs text-[#777]">{time}</span>
+                  <p className="wechat-row-title">{character.name}</p>
+                  <span className="wechat-row-time">{time}</span>
                 </div>
-                <p className="mt-1 truncate text-[13px] text-[#888]">{preview}</p>
+                <p className="wechat-row-preview">{preview}</p>
               </div>
             </button>
           );

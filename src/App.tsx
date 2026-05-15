@@ -1,16 +1,18 @@
 ﻿/**
  * Small phone app shell and current production UI.
- * Main functions/components: App, AppErrorBoundary, Desktop, FeatureScreen, XiaohongshuApp, BilibiliScreen, WeChatApp,
+ * Main functions/components: App, LockScreen, NotificationCenter, AppErrorBoundary, Desktop, FeatureScreen, XiaohongshuApp, BilibiliScreen, WeChatApp,
  * WeChatApp, ChatScreen, Bubble, repairMojibake,
  * fetchModelList, requestChatCompletion, describeChatMessage, getCharacterPrompt,
  * delay, formatMessageTime, clampNumber,
  * CalendarScreen, ContactsScreen, SettingsScreen, ThemesScreen, VideoCallScreen.
- * State dependencies: useAppStore from src/store.ts; Character/Screen/ThemeType/CalendarEvent/GalleryPhoto types.
+ * State dependencies: useAppStore from src/store.ts; Character/Screen/CalendarEvent/GalleryPhoto types.
  * Utility dependencies: pageApps/dockApps from src/shell/appCatalog.tsx, PhoneScreen from src/apps/phone/PhoneScreen.tsx, GalleryScreen from src/apps/gallery/GalleryScreen.tsx, BilibiliScreen from src/apps/bilibili/BilibiliScreen.tsx, MusicScreen from src/apps/music/MusicScreen.tsx, speakWithConfiguredTts from src/tts.ts, parseCharacterCard from src/lib/charaParser.ts, cn/createId from src/lib/utils.ts.
- * Styling dependencies: src/index.css owns theme variables, phone shell, WeChat, chat, desktop styles.
+ * Styling dependencies: src/index.css owns base shell styles; full new theme visuals live in src/themes/.
  * Maintenance note: this file is still the active UI entry; src/pages/* are placeholders until routed in.
  */
 import {
+  Bell,
+  BellRing,
   BookOpen,
   Bot,
   CalendarDays,
@@ -61,6 +63,7 @@ import {
   Tag,
   Trash2,
   Undo2,
+  Unlock,
   Users,
   UserPlus,
   Video,
@@ -72,7 +75,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { parseCharacterCard } from './lib/charaParser';
 import { PhoneScreen } from './apps/phone/PhoneScreen';
 import { speakWithConfiguredTts } from './tts';
-import { BrowserSearchResult, CalendarEvent, Character, ChatMessage, CustomWidget, DiaryEntry, GalleryPhoto, LayoutMode, MemoEntry, MemoEntryColor, MemoEntryType, MusicPlaylist, MusicTrack, Screen, StickerItem, TheaterScene, TheaterWorldBookEntry, ThemeType, useAppStore } from './store';
+import { BrowserSearchResult, CalendarEvent, Character, ChatMessage, CustomWidget, DiaryEntry, GalleryPhoto, LayoutMode, MemoEntry, MemoEntryColor, MemoEntryType, MusicPlaylist, MusicTrack, Screen, StickerItem, TheaterScene, TheaterWorldBookEntry, useAppStore } from './store';
 import { cn, createId } from './lib/utils';
 import { BilibiliScreen } from './apps/bilibili/BilibiliScreen';
 import { BrowserScreen } from './apps/browser/BrowserScreen';
@@ -87,6 +90,7 @@ import { ThemesScreen } from './apps/themes/ThemesScreen';
 import { PresetsScreen } from './apps/presets/PresetsScreen';
 import { LogsScreen } from './apps/logs/LogsScreen';
 import { AIContextScreen } from './apps/ai-context/AIContextScreen';
+import { ActiveEventsScreen } from './apps/active-events/ActiveEventsScreen';
 import { ContactsScreen } from './apps/contacts/ContactsScreen';
 import { TheaterScreen } from './apps/theater/TheaterScreen';
 import { VideoCallScreen } from './apps/video/VideoCallScreen';
@@ -97,6 +101,7 @@ import { GalleryScreen } from './apps/gallery/GalleryScreen';
 import { buildXiaohongshuContext } from './apps/xiaohongshu/xiaohongshuLogic';
 import type { XiaohongshuNote } from './apps/xiaohongshu/types';
 import { dockApps, pageApps } from './shell/appCatalog';
+import { buildShellNotifications, getShellNotificationBadges, type ShellNotification } from './shell/notifications';
 import { buildWeChatSystemPrompt, fallbackWeChatReply, parseWeChatReplyParts } from './apps/wechat/ai/wechatAi';
 import type { WeChatAiParsedPart } from './apps/wechat/ai/wechatAiMessages';
 import { WeChatChats } from './apps/wechat/chats/WeChatChats';
@@ -114,13 +119,8 @@ const gothicDesktopPositions: Record<string, { x: number; y: number }> = {
   memo: { x: 132, y: 382 },
   peek: { x: 226, y: 382 },
   'image-bed': { x: 198, y: 86 },
-  'time-card': { x: 18, y: 270 },
+  'time-card': { x: 12, y: 270 },
 };
-
-const themeOptions: Array<{ id: ThemeType; name: string; desc: string }> = [
-  { id: 'pastel', name: '奶油手绘', desc: '粗描边、浅色块、正常手机桌面。' },
-  { id: 'gothic', name: '哥特玻璃', desc: '参考图二的灰黑玻璃手机，叠加红黑素材纹理。' },
-];
 
 const presetCards = [
   ['手机沉浸破限预设', '允许模拟微信、QQ、电话、日记、查手机等手机行为。'],
@@ -128,6 +128,16 @@ const presetCards = [
   ['剧情推进', '适合小剧场、偷窥 char、隐藏相册、搜索记录。'],
   ['强沉浸通话', '电话/视频通话时强调画面、停顿、环境声。'],
 ];
+
+const viteEnv = (import.meta as ImportMeta & { env?: Record<string, string | undefined> }).env || {};
+const defaultDiscordClientId = viteEnv.VITE_DISCORD_CLIENT_ID || '1502353063975981227';
+const defaultCommunityAuthUrl = 'https://discord.com/oauth2/authorize';
+const defaultCommunityInvites = [
+  { name: '类脑ΟΔΥΣΣΕΙΑ', url: 'https://discord.gg/odysseia' },
+  { name: '旅程ΟΡΙΖΟΝΤΑΣ', url: 'https://discord.gg/NSqeHSK2J' },
+  { name: '世界树ᚢᚴᚴᛏᚱᛅᛋᛁᛚ', url: 'https://discord.gg/4GtJfrSNU' },
+];
+const defaultCommunityBackdoorApiUrl = viteEnv.VITE_COMMUNITY_BACKDOOR_API_URL || 'https://small-phone-auth-backend.vercel.app';
 
 function speak(text: string) {
   const { ttsConfig, addAppLog } = useAppStore.getState();
@@ -394,6 +404,7 @@ function useMemoCharWriterAutomation() {
     apiKey,
     selectedModel,
     chatTemperature,
+    appPresets,
     addMemoEntry,
     setMemoCharWriter,
   } = useAppStore();
@@ -432,6 +443,7 @@ function useMemoCharWriterAutomation() {
                 role: 'system',
                 content: [
                   getCharacterPrompt(character) || `你是${character.name}。`,
+                  appPresets.memo.prompt,
                   '你会在固定时间打开备忘录，总结最近发生的事，写一条短备忘。只输出备忘录正文，不要编号，不要解释。',
                 ].join('\n'),
               },
@@ -465,24 +477,583 @@ function useMemoCharWriterAutomation() {
     const timer = window.setInterval(tick, 15000);
     void tick();
     return () => window.clearInterval(timer);
-  }, [memoCharWriter, characters, chatSessions, wechatMoments, purchaseRecords, diaries, calendarEvents, galleryPhotos, memos, apiBaseUrl, apiKey, selectedModel, chatTemperature, addMemoEntry, setMemoCharWriter]);
+  }, [memoCharWriter, characters, chatSessions, wechatMoments, purchaseRecords, diaries, calendarEvents, galleryPhotos, memos, apiBaseUrl, apiKey, selectedModel, chatTemperature, appPresets.memo.prompt, addMemoEntry, setMemoCharWriter]);
 }
 
 export default function App() {
-  const { theme, activeScreen } = useAppStore();
+  const {
+    theme,
+    activeScreen,
+    characters,
+    chatSessions,
+    phoneCallRecords,
+    calendarEvents,
+    memos,
+    wallpaper,
+    communityVerificationConfig,
+    setCommunityVerificationConfig,
+    setScreen,
+    goBack,
+  } = useAppStore();
+  const [locked, setLocked] = useState(true);
+  const [showNotificationCenter, setShowNotificationCenter] = useState(false);
+  const notifications = buildShellNotifications({ characters, chatSessions, phoneCallRecords, calendarEvents, memos });
+  const notificationBadges = getShellNotificationBadges(notifications);
+  const notificationCount = notifications.reduce((count, notification) => count + (notification.count || 1), 0);
+  const themeClass = theme === 'pastel' || theme === 'gothic' || theme === 'guofeng' || theme === 'celtic-paladin' ? theme : 'pastel';
+  const discordVerified = communityVerificationConfig.verificationMethod === 'discord'
+    && hasRequiredCommunityIdentity(communityVerificationConfig.verifiedGroups, communityVerificationConfig);
+  const backdoorVerified = communityVerificationConfig.verificationMethod === 'backdoor'
+    && typeof communityVerificationConfig.backdoorVerifiedUntil === 'number'
+    && communityVerificationConfig.backdoorVerifiedUntil > Date.now();
+  const communityVerified = discordVerified || backdoorVerified;
+  const openNotification = (notification: ShellNotification) => {
+    setLocked(false);
+    setShowNotificationCenter(false);
+    setScreen(notification.screen);
+  };
   useMemoCharWriterAutomation();
+
+  useEffect(() => {
+    const root = document.documentElement;
+    const updateViewportVars = () => {
+      const viewport = window.visualViewport;
+      const visibleHeight = Math.max(320, Math.round(viewport?.height || window.innerHeight));
+      const keyboardInset = Math.max(0, Math.round(window.innerHeight - visibleHeight - (viewport?.offsetTop || 0)));
+      root.style.setProperty('--app-vvh', `${visibleHeight}px`);
+      root.style.setProperty('--app-keyboard-inset', `${keyboardInset}px`);
+    };
+
+    updateViewportVars();
+    window.addEventListener('resize', updateViewportVars);
+    window.addEventListener('orientationchange', updateViewportVars);
+    window.visualViewport?.addEventListener('resize', updateViewportVars);
+    window.visualViewport?.addEventListener('scroll', updateViewportVars);
+    return () => {
+      window.removeEventListener('resize', updateViewportVars);
+      window.removeEventListener('orientationchange', updateViewportVars);
+      window.visualViewport?.removeEventListener('resize', updateViewportVars);
+      window.visualViewport?.removeEventListener('scroll', updateViewportVars);
+    };
+  }, []);
 
   return (
     <AppErrorBoundary>
-      <div className={cn('min-h-screen phone-stage flex items-center justify-center bg-[#101010] p-2 sm:p-4', `theme-${theme}`)}>
+      <div className={cn('min-h-screen phone-stage flex items-center justify-center bg-[#101010] p-2 sm:p-4', `theme-${themeClass}`)}>
         <main className={cn('phone-shell relative h-[844px] max-h-[calc(100dvh-16px)] w-[390px] max-w-full overflow-hidden bg-[var(--phone-bg)] text-[var(--phone-text)] rounded-[34px] border-[8px] border-[#111]', `screen-${activeScreen}`)}>
           <GlobalMusicAudio />
-          {activeScreen === 'desktop' && <Desktop />}
-          {activeScreen === 'chat' && <ChatScreen />}
-          {activeScreen !== 'desktop' && activeScreen !== 'chat' && <FeatureScreen screen={activeScreen} />}
+          {!communityVerified ? (
+            <CommunityGate config={communityVerificationConfig} onUpdate={setCommunityVerificationConfig} />
+          ) : locked ? (
+            <LockScreen
+              notifications={notifications}
+              wallpaper={wallpaper}
+              onUnlock={() => setLocked(false)}
+              onOpenNotification={openNotification}
+            />
+          ) : (
+            <>
+              {activeScreen === 'desktop' && (
+                <button
+                  type="button"
+                  onClick={() => setShowNotificationCenter(true)}
+                  className="shell-notification-button"
+                  aria-label="打开通知中心"
+                >
+                  <Bell className="h-3.5 w-3.5" />
+                  <span>通知</span>
+                  {notificationCount > 0 && <b>{notificationCount > 99 ? '99+' : notificationCount}</b>}
+                </button>
+              )}
+              {activeScreen === 'desktop' && <Desktop badges={notificationBadges} />}
+              {['wechat', 'xiaohongshu', 'bilibili', 'browser'].includes(activeScreen) && (
+                <button type="button" onClick={goBack} className="shell-app-back-button" aria-label="返回桌面">
+                  <ChevronLeft className="h-7 w-7" />
+                </button>
+              )}
+              {activeScreen === 'chat' && <ChatScreen />}
+              {activeScreen !== 'desktop' && activeScreen !== 'chat' && <FeatureScreen screen={activeScreen} />}
+              {activeScreen === 'desktop' && showNotificationCenter && (
+                <NotificationCenter
+                  notifications={notifications}
+                  onClose={() => setShowNotificationCenter(false)}
+                  onOpenNotification={openNotification}
+                />
+              )}
+            </>
+          )}
         </main>
       </div>
     </AppErrorBoundary>
+  );
+}
+
+function decodeCommunityInput(input: string) {
+  try {
+    return decodeURIComponent(input);
+  } catch {
+    return input;
+  }
+}
+
+function parseCommunityGroups(input: string) {
+  return Array.from(new Set(
+    decodeCommunityInput(input)
+      .split(/[\n,，、|;\s]+/)
+      .map((group) => group.trim())
+      .filter(Boolean),
+  ));
+}
+
+function normalizeCommunityGroup(group: string) {
+  return group.trim().toLowerCase();
+}
+
+function hasRequiredCommunityGroup(groups: string[], requiredGroups: string[]) {
+  const normalizedGroups = new Set(groups.map(normalizeCommunityGroup).filter(Boolean));
+  const normalizedRequired = requiredGroups.map(normalizeCommunityGroup).filter(Boolean);
+  if (normalizedRequired.length === 0) {
+    return normalizedGroups.size > 0;
+  }
+  return normalizedRequired.some((group) => normalizedGroups.has(group));
+}
+
+function hasRequiredCommunityIdentity(groups: string[], config: import('./store').CommunityVerificationConfig) {
+  const requiredGroups = Array.isArray(config.requiredGroups) ? config.requiredGroups : [];
+  const roleIds = Array.isArray(config.discordRoleIds) ? config.discordRoleIds : [];
+  return hasRequiredCommunityGroup(groups, [...requiredGroups, ...roleIds]);
+}
+
+function encodeCommunityState(config: import('./store').CommunityVerificationConfig) {
+  const requiredGroups = Array.isArray(config.requiredGroups) ? config.requiredGroups : [];
+  const guildIds = Array.isArray(config.discordGuildIds) ? config.discordGuildIds : [];
+  const roleIds = Array.isArray(config.discordRoleIds) ? config.discordRoleIds : [];
+  return btoa(encodeURIComponent(JSON.stringify({
+    returnTo: window.location.href.split('?')[0].split('#')[0],
+    communityName: config.communityName,
+    requiredGroups,
+    guildIds,
+    roleIds,
+  })));
+}
+
+function isNativeSmallPhone() {
+  return Boolean((window as Window & { ReactNativeWebView?: unknown; __SMALL_PHONE_NATIVE__?: boolean }).ReactNativeWebView
+    || (window as Window & { __SMALL_PHONE_NATIVE__?: boolean }).__SMALL_PHONE_NATIVE__);
+}
+
+function isLocalCommunityPreview() {
+  return ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname);
+}
+
+function getCommunityBackdoorApiUrl(config: import('./store').CommunityVerificationConfig) {
+  const savedUrl = (config.backdoorApiUrl || '').trim().replace(/\/+$/, '');
+  const defaultUrl = defaultCommunityBackdoorApiUrl.trim().replace(/\/+$/, '');
+  if (savedUrl && !savedUrl.includes('small-phone-backdoor.vercel.app')) {
+    return savedUrl;
+  }
+  return defaultUrl || savedUrl;
+}
+
+function getCommunityRedirectUri(config: import('./store').CommunityVerificationConfig) {
+  if (isNativeSmallPhone()) {
+    const callbackBase = getCommunityBackdoorApiUrl(config);
+    return callbackBase
+      ? `${callbackBase}/api/community/discord/callback`
+      : 'smallphone://discord-callback';
+  }
+  return config.callbackUrl.trim() || window.location.href.split('?')[0].split('#')[0];
+}
+
+function readGroupsFromUrl() {
+  const hashQuery = window.location.hash.includes('?')
+    ? window.location.hash.slice(window.location.hash.indexOf('?'))
+    : window.location.hash.replace(/^#/, '?');
+  const paramsList = [window.location.search, hashQuery]
+    .filter((value) => value && value !== '?')
+    .map((value) => new URLSearchParams(value));
+  const groupKeys = ['group', 'groups', 'discord_group', 'discord_groups', 'verified_group', 'verified_groups', 'role', 'roles', 'discord_role', 'discord_roles', 'role_id', 'role_ids'];
+  const rawGroups = paramsList.flatMap((params) => groupKeys.flatMap((key) => params.getAll(key)));
+  return parseCommunityGroups(rawGroups.join(','));
+}
+
+function readDiscordAccessTokenFromUrl(urlText = window.location.href) {
+  try {
+    const url = new URL(urlText);
+    const hashParams = new URLSearchParams(url.hash.replace(/^#/, '?'));
+    const searchParams = new URLSearchParams(url.search);
+    return hashParams.get('access_token') || searchParams.get('access_token') || '';
+  } catch {
+    return '';
+  }
+}
+
+async function fetchDiscordCommunityIdentities(accessToken: string, config: import('./store').CommunityVerificationConfig) {
+  const response = await fetch('https://discord.com/api/users/@me/guilds', {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!response.ok) {
+    throw new Error(`Discord guilds 请求失败：${response.status}`);
+  }
+  const guilds = await response.json() as Array<{ id?: string; name?: string }>;
+  const identities = guilds.flatMap((guild) => [guild.id, guild.name].filter(Boolean) as string[]);
+  const targetGuildIds = new Set((Array.isArray(config.discordGuildIds) ? config.discordGuildIds : []).filter(Boolean));
+  await Promise.all(guilds
+    .filter((guild) => guild.id && targetGuildIds.has(guild.id))
+    .map(async (guild) => {
+      try {
+        const memberResponse = await fetch(`https://discord.com/api/users/@me/guilds/${guild.id}/member`, {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
+        if (!memberResponse.ok) return;
+        const member = await memberResponse.json() as { roles?: string[] };
+        identities.push(...(Array.isArray(member.roles) ? member.roles : []));
+      } catch {
+        // Guild membership is still useful even when role lookup is unavailable.
+      }
+    }));
+  return identities;
+}
+
+function buildCommunityAuthUrl(config: import('./store').CommunityVerificationConfig) {
+  const authorizationUrl = config.authorizationUrl || '';
+  const target = authorizationUrl.trim() && !authorizationUrl.includes('api.xiejiang.de5.net')
+    ? config.authorizationUrl.trim()
+    : defaultCommunityAuthUrl;
+  if (!target) return null;
+  try {
+    const url = new URL(target, window.location.href);
+    const isDiscordAuthorize = /(^|\.)discord(app)?\.com$/i.test(url.hostname);
+    const discordClientId = config.discordClientId || '';
+    const discordGuildIds = Array.isArray(config.discordGuildIds) ? config.discordGuildIds : [];
+    const requiredGroups = Array.isArray(config.requiredGroups) ? config.requiredGroups : [];
+    const clientId = url.searchParams.get('client_id') || discordClientId.trim() || defaultDiscordClientId;
+    if (isDiscordAuthorize) {
+      if (!clientId) return null;
+      url.searchParams.set('client_id', clientId);
+      url.searchParams.set('response_type', 'token');
+      url.searchParams.set('scope', url.searchParams.get('scope') || 'identify guilds guilds.members.read');
+      url.searchParams.set('prompt', url.searchParams.get('prompt') || 'consent');
+      url.searchParams.set('state', encodeCommunityState(config));
+      url.searchParams.set('redirect_uri', getCommunityRedirectUri(config));
+      if (discordGuildIds.length === 1 && !url.searchParams.has('guild_id')) {
+        url.searchParams.set('guild_id', discordGuildIds[0]);
+      }
+      return url.toString();
+    }
+    if (config.callbackUrl.trim() && !url.searchParams.has('redirect_uri')) {
+      url.searchParams.set('redirect_uri', config.callbackUrl.trim());
+    }
+    if (!url.searchParams.has('return_to')) {
+      url.searchParams.set('return_to', window.location.href.split('?')[0].split('#')[0]);
+    }
+    if (!url.searchParams.has('required_groups')) {
+      url.searchParams.set('required_groups', requiredGroups.join(','));
+    }
+    return url.toString();
+  } catch {
+    return null;
+  }
+}
+
+function CommunityGate({
+  config,
+  onUpdate,
+}: {
+  config: import('./store').CommunityVerificationConfig;
+  onUpdate: (updates: Partial<import('./store').CommunityVerificationConfig>) => void;
+}) {
+  const callbackUrl = config.callbackUrl;
+  const authorizationUrl = config.authorizationUrl || defaultCommunityAuthUrl;
+  const savedRequiredGroups = Array.isArray(config.requiredGroups) ? config.requiredGroups : [];
+  const savedInviteUrls = Array.isArray(config.discordInviteUrls) ? config.discordInviteUrls : [];
+  const requiredGroups = savedRequiredGroups.length > 0 ? savedRequiredGroups : defaultCommunityInvites.map((invite) => invite.name);
+  const inviteTargets = defaultCommunityInvites.map((invite, index) => ({
+    ...invite,
+    url: savedInviteUrls[index] || invite.url,
+  }));
+  const [showBackdoor, setShowBackdoor] = useState(() => {
+    const searchParams = new URLSearchParams(window.location.search);
+    const hashQuery = window.location.hash.includes('?') ? window.location.hash.slice(window.location.hash.indexOf('?')) : window.location.hash.replace(/^#/, '?');
+    const hashParams = new URLSearchParams(hashQuery);
+    return searchParams.has('backdoor') || searchParams.has('community_debug') || hashParams.has('backdoor') || hashParams.has('community_debug');
+  });
+  const [loginTitleTaps, setLoginTitleTaps] = useState(0);
+  const [backdoorText, setBackdoorText] = useState('');
+  const [status, setStatus] = useState('请使用 Discord 登录，验证身份组后会自动进入小手机。');
+  const backdoorApiUrl = getCommunityBackdoorApiUrl(config);
+  const localPreview = isLocalCommunityPreview();
+
+  const verifyGroups = (groups: string[]) => {
+    onUpdate({ callbackUrl, authorizationUrl, requiredGroups });
+    if (!hasRequiredCommunityIdentity(groups, { ...config, callbackUrl, authorizationUrl, requiredGroups })) {
+      const roleHint = config.discordRoleIds.length > 0 ? ` 或已配置的 ${config.discordRoleIds.length} 个 Role ID` : '';
+      setStatus(`没有检测到可用身份组。拥有 ${requiredGroups.join(' / ')}${roleHint} 中任意一个即可。`);
+      return;
+    }
+    onUpdate({
+      callbackUrl,
+      authorizationUrl,
+      requiredGroups,
+      verifiedGroups: groups,
+      verificationMethod: 'discord',
+      verifiedAt: Date.now(),
+      backdoorVerifiedUntil: undefined,
+    });
+    setStatus('Discord 身份组验证通过，之后不需要重复验证。');
+  };
+
+  const verifyDiscordAccessToken = async (accessToken: string) => {
+    setStatus('正在读取 Discord 社区身份...');
+    try {
+      const groups = await fetchDiscordCommunityIdentities(accessToken, { ...config, callbackUrl, authorizationUrl, requiredGroups });
+      verifyGroups(groups);
+      window.history.replaceState(null, '', window.location.pathname);
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : 'Discord 验证失败，请重新登录。');
+    }
+  };
+
+  const verifyBackdoor = async () => {
+    onUpdate({ callbackUrl, authorizationUrl, requiredGroups, backdoorApiUrl });
+    const inputCode = backdoorText.trim();
+    if (!inputCode) {
+      setStatus('请输入作者端生成的后门通行码。');
+      return;
+    }
+    if (!backdoorApiUrl) {
+      setStatus('后门服务未配置。发布 APK 前请设置 VITE_COMMUNITY_BACKDOOR_API_URL，或进入设置页填写后门服务地址。');
+      return;
+    }
+    setStatus('正在请求后端验证后门通行码...');
+    try {
+      const response = await fetch(`${backdoorApiUrl}/api/community/backdoor/verify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: inputCode }),
+      });
+      const data = await response.json().catch(() => null) as { ok?: boolean; expiresAt?: number; message?: string } | null;
+      if (!response.ok || !data?.ok || typeof data.expiresAt !== 'number') {
+        setStatus(data?.message || '后门通行码不对，或后门服务拒绝了这次验证。');
+        return;
+      }
+      onUpdate({
+        callbackUrl,
+        authorizationUrl,
+        requiredGroups,
+        backdoorApiUrl,
+        verifiedGroups: [],
+        verificationMethod: 'backdoor',
+        verifiedAt: Date.now(),
+        backdoorVerifiedUntil: data.expiresAt,
+      });
+      const expiresText = new Date(data.expiresAt).toLocaleString('zh-CN', {
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+      });
+      setStatus(`后门验证通过，到 ${expiresText} 前有效。`);
+    } catch (error) {
+      setStatus(error instanceof Error ? `后门服务连接失败：${error.message}` : '后门服务连接失败。');
+    }
+  };
+
+  const jumpToDiscord = () => {
+    onUpdate({ callbackUrl, authorizationUrl, requiredGroups });
+    if (localPreview) {
+      verifyGroups(requiredGroups);
+      setStatus('本地预览已跳过 Discord 授权。');
+      return;
+    }
+    const authUrl = buildCommunityAuthUrl({ ...config, callbackUrl, authorizationUrl, requiredGroups });
+    if (!authUrl) {
+      setStatus('Discord 应用还缺少 Client ID。请先在设置页的社区验证里填入 Discord Developer App 的 Client ID；玩家不会看到这个配置。');
+      return;
+    }
+    window.location.assign(authUrl);
+  };
+
+  const openInvite = (url: string) => {
+    window.location.assign(url);
+  };
+
+  const revealBackdoorFromLoginTitle = () => {
+    setLoginTitleTaps((count) => {
+      const next = count + 1;
+      if (next >= 3) {
+        setShowBackdoor(true);
+        setStatus('备用入口已打开。');
+        return 0;
+      }
+      return next;
+    });
+  };
+
+  useEffect(() => {
+    const accessToken = readDiscordAccessTokenFromUrl();
+    if (accessToken) {
+      void verifyDiscordAccessToken(accessToken);
+      return;
+    }
+    const groups = readGroupsFromUrl();
+    if (groups.length > 0) {
+      verifyGroups(groups);
+      return;
+    }
+    const params = new URLSearchParams(window.location.search || window.location.hash.replace(/^#/, '?'));
+    if (params.has('code')) {
+      setStatus('Discord 已返回授权码；当前版本使用 access token 验证，请重新点击验证按钮。');
+    }
+    const handleNativeDiscordCallback = (event: Event) => {
+      const detail = (event as CustomEvent<string>).detail;
+      const token = readDiscordAccessTokenFromUrl(detail);
+      if (token) {
+        void verifyDiscordAccessToken(token);
+      }
+    };
+    window.addEventListener('small-phone-discord-callback', handleNativeDiscordCallback as EventListener);
+    return () => window.removeEventListener('small-phone-discord-callback', handleNativeDiscordCallback as EventListener);
+    // Only consume the current browser callback once when the gate opens.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return (
+    <section className="community-gate">
+      <div className="community-gate-panel">
+        <Shield className="h-8 w-8" />
+        <h1 onClick={revealBackdoorFromLoginTitle}>登录</h1>
+        <p>先加入任意一个指定 Discord 社区，再回来验证登录。</p>
+        <div className="community-invite-grid">
+          {inviteTargets.map((invite) => (
+            <button key={invite.name} type="button" onClick={() => openInvite(invite.url)}>
+              {invite.name}
+            </button>
+          ))}
+        </div>
+        <div className="community-gate-actions">
+          <button type="button" onClick={jumpToDiscord}>{localPreview ? '本地预览直接进入' : '我已加入，使用 Discord 验证'}</button>
+        </div>
+        {showBackdoor && (
+          <>
+            <div className="community-gate-divider"><span>备用入口</span></div>
+            <label>
+              <span>后门通行码</span>
+              <input value={backdoorText} onChange={(event) => setBackdoorText(event.target.value)} inputMode="numeric" placeholder="输入 6 位通行码" />
+              <small>通行码只在作者后端生成和校验，客户端不会显示也不会保存真实后门码。</small>
+            </label>
+            <div className="community-gate-actions community-gate-actions-compact">
+              <button type="button" onClick={verifyBackdoor}>后门进入</button>
+              <button type="button" onClick={() => verifyGroups(readGroupsFromUrl())}>读取回调</button>
+            </div>
+          </>
+        )}
+        <p className="community-gate-status">{status}</p>
+      </div>
+    </section>
+  );
+}
+
+function LockScreen({
+  notifications,
+  wallpaper,
+  onUnlock,
+  onOpenNotification,
+}: {
+  notifications: ShellNotification[];
+  wallpaper: string | null;
+  onUnlock: () => void;
+  onOpenNotification: (notification: ShellNotification) => void;
+}) {
+  const now = new Date();
+  const visibleNotifications = notifications.slice(0, 4);
+  return (
+    <section className={cn('lock-screen', wallpaper ? 'has-custom-wallpaper' : 'has-default-lock-art')}>
+      {wallpaper && <img src={wallpaper} alt="" className="lock-wallpaper-image" onError={(event) => { event.currentTarget.style.display = 'none'; }} />}
+      <div className="lock-wallpaper-shade" />
+      <div className="lock-status-row">
+        <span>{now.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false })}</span>
+        <span>WiFi · 88%</span>
+      </div>
+      <div className="lock-clock">
+        <p>{now.toLocaleDateString('zh-CN', { month: 'long', day: 'numeric', weekday: 'long' })}</p>
+        <h1>{now.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false })}</h1>
+      </div>
+      <div className="lock-notification-stack">
+        {visibleNotifications.length > 0 ? (
+          visibleNotifications.map((notification) => (
+            <NotificationCard key={notification.id} notification={notification} compact onClick={() => onOpenNotification(notification)} />
+          ))
+        ) : (
+          <div className="lock-empty-card">
+            <BellRing className="h-5 w-5" />
+            <span>今天暂时很安静</span>
+          </div>
+        )}
+      </div>
+      <button type="button" onClick={onUnlock} className="lock-unlock-button">
+        <Unlock className="h-5 w-5" />
+        <span>解锁</span>
+      </button>
+    </section>
+  );
+}
+
+function NotificationCenter({
+  notifications,
+  onClose,
+  onOpenNotification,
+}: {
+  notifications: ShellNotification[];
+  onClose: () => void;
+  onOpenNotification: (notification: ShellNotification) => void;
+}) {
+  return (
+    <div className="notification-center">
+      <div className="notification-sheet">
+        <div className="notification-header">
+          <div>
+            <p>通知中心</p>
+            <h2>{notifications.length > 0 ? `${notifications.length} 条提醒` : '暂无提醒'}</h2>
+          </div>
+          <button type="button" onClick={onClose} className="widget-delete static">
+            ×
+          </button>
+        </div>
+        <div className="notification-list">
+          {notifications.length > 0 ? (
+            notifications.map((notification) => (
+              <NotificationCard key={notification.id} notification={notification} onClick={() => onOpenNotification(notification)} />
+            ))
+          ) : (
+            <div className="notification-empty">未读消息、未接电话和提醒会显示在这里。</div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function NotificationCard({ notification, compact, onClick }: { key?: React.Key; notification: ShellNotification; compact?: boolean; onClick: () => void }) {
+  const icon = notification.kind === 'chat'
+    ? <MessageCircle />
+    : notification.kind === 'call'
+      ? <Phone />
+      : notification.kind === 'calendar'
+        ? <CalendarDays />
+        : <FileText />;
+  return (
+    <button type="button" onClick={onClick} className={cn('notification-card', compact && 'compact')}>
+      <span className={cn('notification-icon', `kind-${notification.kind}`)}>
+        {React.cloneElement(icon as React.ReactElement<{ className?: string }>, { className: 'h-4 w-4' })}
+      </span>
+      <span className="min-w-0 flex-1 text-left">
+        <span className="notification-title">{notification.title}</span>
+        <span className="notification-body">{notification.body}</span>
+      </span>
+      {notification.count && notification.count > 1 ? <span className="notification-count">{notification.count}</span> : null}
+    </button>
   );
 }
 
@@ -562,7 +1133,7 @@ class AppErrorBoundary extends React.Component<{ children: React.ReactNode }, { 
   }
 }
 
-function Desktop() {
+function Desktop({ badges }: { badges: Partial<Record<Screen, number>> }) {
   const {
     theme,
     setScreen,
@@ -584,6 +1155,8 @@ function Desktop() {
   const [showWidgetPicker, setShowWidgetPicker] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const canvasRef = useRef<HTMLDivElement>(null);
+  const swipeStartRef = useRef<{ x: number; y: number } | null>(null);
+  const suppressClickRef = useRef(false);
   const page = desktopPage;
   const now = new Date();
   const dateText = now.toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric', weekday: 'long' });
@@ -599,8 +1172,68 @@ function Desktop() {
     event.target.value = '';
   };
 
+  const setDesktopPageSafely = (nextPage: number) => {
+    setDesktopPage(nextPage <= 0 ? 0 : 1);
+  };
+
+  const finishPageSwipeAt = (x: number, y: number) => {
+    if (editMode || !swipeStartRef.current) return;
+    const deltaX = x - swipeStartRef.current.x;
+    const deltaY = y - swipeStartRef.current.y;
+    swipeStartRef.current = null;
+    if (Math.abs(deltaX) < 42 || Math.abs(deltaX) < Math.abs(deltaY) * 1.15) return;
+    suppressClickRef.current = true;
+    setDesktopPageSafely(deltaX < 0 ? page + 1 : page - 1);
+    window.setTimeout(() => { suppressClickRef.current = false; }, 220);
+  };
+
+  const startPageSwipe = (event: React.PointerEvent<HTMLElement>) => {
+    if (editMode) return;
+    swipeStartRef.current = { x: event.clientX, y: event.clientY };
+  };
+
+  const finishPageSwipe = (event: React.PointerEvent<HTMLElement>) => {
+    finishPageSwipeAt(event.clientX, event.clientY);
+  };
+
+  const startPageTouchSwipe = (event: React.TouchEvent<HTMLElement>) => {
+    if (editMode || event.touches.length !== 1) return;
+    const touch = event.touches[0];
+    swipeStartRef.current = { x: touch.clientX, y: touch.clientY };
+  };
+
+  const finishPageTouchSwipe = (event: React.TouchEvent<HTMLElement>) => {
+    const touch = event.changedTouches[0];
+    if (!touch) return;
+    finishPageSwipeAt(touch.clientX, touch.clientY);
+  };
+
+  const movePageTouchSwipe = (event: React.TouchEvent<HTMLElement>) => {
+    if (editMode || !swipeStartRef.current || event.touches.length !== 1) return;
+    const touch = event.touches[0];
+    const deltaX = touch.clientX - swipeStartRef.current.x;
+    const deltaY = touch.clientY - swipeStartRef.current.y;
+    if (Math.abs(deltaX) > 12 && Math.abs(deltaX) > Math.abs(deltaY)) {
+      event.preventDefault();
+    }
+  };
+
   return (
-    <section className={cn('cream-screen relative h-full overflow-hidden px-5 pb-28 pt-10', editMode && 'select-none')}>
+    <section
+      className={cn('cream-screen desktop-screen relative h-full overflow-hidden px-5 pb-28 pt-10', editMode && 'select-none')}
+      onPointerDown={startPageSwipe}
+      onPointerUp={finishPageSwipe}
+      onPointerCancel={() => { swipeStartRef.current = null; }}
+      onTouchStart={startPageTouchSwipe}
+      onTouchMove={movePageTouchSwipe}
+      onTouchEnd={finishPageTouchSwipe}
+      onTouchCancel={() => { swipeStartRef.current = null; }}
+      onClickCapture={(event) => {
+        if (!suppressClickRef.current) return;
+        event.preventDefault();
+        event.stopPropagation();
+      }}
+    >
       <div className="layout-controls">
         <button onClick={() => setEditMode(!editMode)} className={cn('layout-toggle', editMode && 'active')}>
           {editMode ? '完成' : '编辑布局'}
@@ -627,7 +1260,7 @@ function Desktop() {
             </Draggable>
             <input ref={imageInputRef} type="file" accept="image/*" onChange={uploadImage} className="hidden" />
 
-            <Draggable id="time-card" defaultPos={themedPos('time-card', { x: 20, y: 242 })} editMode={editMode} layoutMode={layoutMode} canvasRef={canvasRef} positions={layoutPositions} setPosition={setLayoutPosition}>
+            <Draggable id="time-card" defaultPos={themedPos('time-card', { x: 12, y: 242 })} editMode={editMode} layoutMode={layoutMode} canvasRef={canvasRef} positions={layoutPositions} setPosition={setLayoutPosition}>
               <div className="time-card">
                 <div className="min-w-0">
                   <div className="time-text">{now.toLocaleTimeString('zh-CN', { hour12: false })}</div>
@@ -644,7 +1277,7 @@ function Desktop() {
 
         {pageApps.filter((app) => app.page === page).map((app) => (
           <Draggable key={app.id} id={app.id} defaultPos={themedPos(app.id, { x: app.x, y: app.y })} editMode={editMode} layoutMode={layoutMode} canvasRef={canvasRef} positions={layoutPositions} setPosition={setLayoutPosition}>
-            <AppIcon {...app} onClick={() => !editMode && setScreen(app.screen)} />
+            <AppIcon {...app} badge={badges[app.screen]} onClick={() => !editMode && setScreen(app.screen)} />
           </Draggable>
         ))}
 
@@ -656,8 +1289,8 @@ function Desktop() {
       </div>
 
       <div className="page-dots">
-        <button onClick={() => setDesktopPage(0)} className={cn(page === 0 && 'active')} />
-        <button onClick={() => setDesktopPage(1)} className={cn(page === 1 && 'active')} />
+        <button type="button" aria-label="第 1 页" onClick={() => setDesktopPageSafely(0)} className={cn(page === 0 && 'active')} />
+        <button type="button" aria-label="第 2 页" onClick={() => setDesktopPageSafely(1)} className={cn(page === 1 && 'active')} />
       </div>
 
       {showGuide && (
@@ -667,6 +1300,8 @@ function Desktop() {
               ×
             </button>
             <h2>小手机教程</h2>
+            <p>作者：宇宙的意义是42；发布平台：discord；性质：免费。</p>
+            <p>适用人群：使用酒馆的人群，支持一个中国原则，认可社会主义核心价值观，不是柜子。</p>
             <p>通讯录负责导入和编辑酒馆卡，保存后会回到通讯录列表。微信里包含朋友圈和视频通话。</p>
             <p>点“编辑布局”后可以拖动 app、图床、时间和小组件。布局模式可以在自动对齐和自由移动之间切换。</p>
             <p>点“添加组件”会打开选择面板，可以添加便签、照片或状态组件。组件在编辑模式下可以改字、传照片、删除。</p>
@@ -692,9 +1327,10 @@ function Desktop() {
 
       <div className="dock">
         {dockApps.map((app) => (
-          <button key={app.label} onClick={() => setScreen(app.screen)} className="flex flex-col items-center gap-1">
-            <span className={cn('dock-icon', app.color)}>
+          <button key={app.label} onClick={() => setScreen(app.screen)} className="flex flex-col items-center gap-1" data-screen={app.screen}>
+            <span className={cn('dock-icon', app.color)} data-screen={app.screen}>
               {React.cloneElement(app.icon as React.ReactElement<{ className?: string }>, { className: 'h-6 w-6' })}
+              {badges[app.screen] ? <span className="shell-badge dock-badge">{badges[app.screen]! > 99 ? '99+' : badges[app.screen]}</span> : null}
             </span>
             <span className="text-[11px] font-black">{app.label}</span>
           </button>
@@ -728,6 +1364,7 @@ function Draggable({
 
   const startDrag = (event: React.PointerEvent<HTMLDivElement>) => {
     if (!editMode) return;
+    event.preventDefault();
     const canvas = canvasRef.current;
     if (!canvas) return;
     const rect = canvas.getBoundingClientRect();
@@ -839,10 +1476,13 @@ function CustomWidgetView({
   );
 }
 
-function AppIcon({ label, icon, color, onClick }: { key?: React.Key; label: string; icon: React.ReactNode; color: string; onClick: () => void }) {
+function AppIcon({ label, icon, color, badge, screen, onClick }: { key?: React.Key; label: string; icon: React.ReactNode; color: string; badge?: number; screen: Screen; onClick: () => void }) {
   return (
-    <button onClick={onClick} className="app-button">
-      <span className={cn('app-icon', color)}>{React.cloneElement(icon as React.ReactElement<{ className?: string }>, { className: 'h-7 w-7' })}</span>
+    <button onClick={onClick} className="app-button" data-screen={screen}>
+      <span className={cn('app-icon', color)} data-screen={screen}>
+        {React.cloneElement(icon as React.ReactElement<{ className?: string }>, { className: 'h-7 w-7' })}
+        {badge ? <span className="shell-badge">{badge > 99 ? '99+' : badge}</span> : null}
+      </span>
       <span className="app-label">{label}</span>
     </button>
   );
@@ -893,8 +1533,10 @@ function FeatureScreen({ screen }: { screen: Screen }) {
   if (screen === 'settings') return <SettingsScreen />;
   if (screen === 'themes') return <ThemesScreen />;
   if (screen === 'presets') return <PresetsScreen />;
+  if (screen === 'backup') return <BackupScreen />;
   if (screen === 'logs') return <LogsScreen />;
   if (screen === 'ai-context') return <AIContextScreen />;
+  if (screen === 'active-events' || screen === 'char-active') return <ActiveEventsScreen />;
   if (screen === 'import' || screen === 'contacts') return <ContactsScreen />;
   if (screen === 'memo') return <MemoScreen />;
   if (screen === 'browser') return <BrowserScreen />;
@@ -922,6 +1564,89 @@ function FeatureScreen({ screen }: { screen: Screen }) {
         {bullets.map((item) => (
           <Row key={item} icon={<Sparkles />} title={item} desc="保留入口和数据结构，下一步接 AI 生成逻辑。" />
         ))}
+      </Panel>
+    </section>
+  );
+}
+
+function BackupScreen() {
+  const fileRef = useRef<HTMLInputElement | null>(null);
+  const [status, setStatus] = useState('导出后可以在更新 APK 或网页版本后再导入，恢复聊天、角色、相册、设置和主题。');
+
+  const exportBackup = () => {
+    const raw = window.localStorage.getItem('char-phone-framework');
+    if (!raw) {
+      setStatus('还没有可导出的本地数据。');
+      return;
+    }
+    const payload = {
+      app: 'small-phone',
+      exportedAt: new Date().toISOString(),
+      storageKey: 'char-phone-framework',
+      data: JSON.parse(raw),
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `small-phone-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+    setStatus('备份文件已经导出。');
+  };
+
+  const importBackup = (file?: File) => {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const parsed = JSON.parse(String(reader.result || ''));
+        const data = parsed?.storageKey === 'char-phone-framework' ? parsed.data : parsed;
+        if (!data || typeof data !== 'object' || !('state' in data)) {
+          throw new Error('备份格式不正确');
+        }
+        window.localStorage.setItem('char-phone-framework', JSON.stringify(data));
+        setStatus('导入成功，正在重新打开小手机。');
+        window.setTimeout(() => window.location.reload(), 350);
+      } catch (error) {
+        setStatus(error instanceof Error ? error.message : '导入失败，请确认是小手机备份 JSON。');
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const clearLocalData = () => {
+    if (!window.confirm('确认清空当前小手机本地数据？建议先导出备份。')) return;
+    window.localStorage.removeItem('char-phone-framework');
+    setStatus('本地数据已清空，正在重新打开小手机。');
+    window.setTimeout(() => window.location.reload(), 350);
+  };
+
+  return (
+    <section className="no-scrollbar h-full overflow-y-auto pb-8">
+      <Header title="数据备份" subtitle="导出 / 导入小手机本地数据" />
+      <Panel>
+        <Row icon={<FileText />} title="导出备份" desc="保存当前所有本地数据，更新版本前先导出。" />
+        <button type="button" onClick={exportBackup} className="fetch-button mt-3">
+          <Copy className="h-5 w-5" />
+          导出 JSON
+        </button>
+      </Panel>
+      <Panel>
+        <Row icon={<Import />} title="导入备份" desc="选择之前导出的 JSON，导入后会自动刷新小手机。" />
+        <input ref={fileRef} type="file" accept="application/json,.json" hidden onChange={(event) => importBackup(event.target.files?.[0])} />
+        <button type="button" onClick={() => fileRef.current?.click()} className="fetch-button mt-3">
+          <Import className="h-5 w-5" />
+          导入 JSON
+        </button>
+      </Panel>
+      <Panel>
+        <Row icon={<Trash2 />} title="清空本地数据" desc="只在确认备份已经可用时使用。" />
+        <button type="button" onClick={clearLocalData} className="fetch-button mt-3 bg-[#ffd6d6]">
+          <Trash2 className="h-5 w-5" />
+          清空数据
+        </button>
+        <p className="mt-3 text-sm font-black leading-5 opacity-70">{status}</p>
       </Panel>
     </section>
   );

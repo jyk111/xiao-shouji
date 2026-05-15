@@ -133,6 +133,7 @@ export function TheaterScreen() {
     addDiary,
     addMessage,
     openChat,
+    appPresets,
   } = useAppStore();
   const worldBookInputRef = useRef<HTMLInputElement>(null);
   const topicInputRef = useRef<HTMLInputElement>(null);
@@ -346,7 +347,7 @@ export function TheaterScreen() {
           messages: [
             {
               role: 'system',
-              content: buildTheaterSystemPrompt(sceneActors.map(getCharacterPrompt).filter(Boolean).join('\n\n')),
+              content: [appPresets.theater.prompt, buildTheaterSystemPrompt(sceneActors.map(getCharacterPrompt).filter(Boolean).join('\n\n'))].join('\n\n'),
             },
             {
               role: 'user',

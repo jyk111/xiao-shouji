@@ -1,11 +1,19 @@
 import type { Character, GalleryPhoto } from '../../store';
 
 export type GalleryTab = 'all' | 'favorites' | 'hidden' | 'wechat';
-export type GalleryView = 'grid' | 'detail';
+export type GalleryView = 'home' | 'collection' | 'imports' | 'detail';
 export type GalleryAlbumFilter = '全部' | GalleryPhoto['album'];
 export type GalleryPhotoSource = NonNullable<GalleryPhoto['source']>;
 
 export const galleryAlbums: GalleryPhoto['album'][] = ['生活', '自拍', '截图', '风景', '隐藏', '聊天'];
+export const gallerySources: Array<{ source: GalleryPhotoSource; label: string }> = [
+  { source: 'upload', label: '本地上传' },
+  { source: 'image-bed', label: '图床' },
+  { source: 'wechat', label: '微信照片墙' },
+  { source: 'chat', label: '聊天图片' },
+  { source: 'moment', label: '朋友圈' },
+  { source: 'generated', label: 'AI 生图' },
+];
 
 export function filterGalleryPhotos(
   photos: GalleryPhoto[],
@@ -15,7 +23,7 @@ export function filterGalleryPhotos(
     .filter((photo) => {
       if (options.tab === 'favorites' && !photo.favorite) return false;
       if (options.tab === 'hidden' && !photo.hidden && photo.album !== '隐藏') return false;
-      if (options.tab === 'wechat' && photo.source !== 'wechat') return false;
+      if (options.tab === 'wechat' && photo.source !== 'wechat' && photo.source !== 'chat' && photo.album !== '聊天') return false;
       if (options.tab === 'all' && photo.hidden) return false;
       if (options.albumFilter !== '全部' && photo.album !== options.albumFilter) return false;
       return true;
@@ -62,10 +70,10 @@ export function buildGalleryPhotoDraft({
   return {
     url,
     title,
-    album: source === 'wechat' ? '聊天' : '生活',
+    album: source === 'wechat' || source === 'chat' ? '聊天' : '生活',
     description: '',
     note: '',
-    tags: source === 'wechat' ? ['微信'] : [],
+    tags: source === 'wechat' || source === 'chat' ? ['微信'] : source === 'generated' ? ['AI生图'] : [],
     characterId: '',
     readableByChar: true,
     reviews: [],

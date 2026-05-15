@@ -7,9 +7,10 @@ const parsed = parseWeChatAiReply([
   '[transfer amount=188 note=晚饭钱]',
   '[red-packet amount=52 note=买点甜的]',
   '[shopping item=奶茶 amount=18 note=我下单了]',
+  '[image prompt="雨夜窗边的热茶" label=发你看]',
 ].join('\n'));
 
-assert.equal(parsed.length, 5);
+assert.equal(parsed.length, 6);
 assert.equal(parsed[0].kind, 'text');
 assert.equal(parsed[0].content, '到了说一声');
 assert.equal(parsed[1].kind, 'sticker');
@@ -21,6 +22,8 @@ assert.equal(parsed[3].kind, 'red-packet');
 assert.equal(parsed[3].amount, '52');
 assert.equal(parsed[4].kind, 'shopping');
 assert.equal(parsed[4].itemName, '奶茶');
+assert.equal(parsed[5].kind, 'image');
+assert.equal(parsed[5].prompt, '雨夜窗边的热茶');
 
 const fallback = parseWeChatAiReply('[transfer note=少了金额]');
 assert.equal(fallback[0].kind, 'text');
@@ -31,5 +34,8 @@ assert.equal(quoted[0].kind, 'shopping');
 assert.equal(quoted[0].itemName, '热奶茶');
 assert.equal(quoted[0].amount, '18.5');
 assert.equal(quoted[0].note, '别喝冰的');
+
+const badImage = parseWeChatAiReply('[image label=缺提示词]');
+assert.equal(badImage[0].kind, 'text');
 
 console.log('wechatAiMessages tests passed');

@@ -85,7 +85,7 @@ export function DiaryScreen() {
     apiKey,
     selectedModel,
     chatTemperature,
-    browserPresetPrompt,
+    appPresets,
   } = useAppStore();
   const [tab, setTab] = useState<DiaryTab>('user');
   const [view, setView] = useState<'list' | 'edit' | 'detail'>('list');
@@ -161,7 +161,8 @@ export function DiaryScreen() {
           {
             role: 'system',
             content: [
-              getCharacterPrompt(reader) || `你是${reader.name}。`,
+            getCharacterPrompt(reader) || `你是${reader.name}。`,
+              appPresets.diary.prompt,
               '你刚读完用户写的一篇私人日记。请只写一段批注式评价，不展开对话，不提“作为AI”，不要复述全文。语气要像你本人在日记页下方留下的短评。',
             ].join('\n'),
           },
@@ -276,6 +277,7 @@ export function DiaryScreen() {
           role: 'system' as const,
           content: [
             getCharacterPrompt(character) || `你是${character.name}。`,
+            appPresets.diary.prompt,
             '请按角色自己的口吻写一篇今天的私人日记。只输出日记正文，不写解释，不复述完整聊天记录，要写感受、误解、惦记和下一步想做什么。',
             '篇幅写到 800 到 1200 个中文字，像真的在手机里认真写日记，不要只写摘要。',
           ].join('\n'),
