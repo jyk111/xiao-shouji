@@ -482,6 +482,11 @@ body::-webkit-scrollbar,
   background: #cfe5ef;
 }
 
+.community-gate-actions .community-preview-button {
+  grid-column: 1 / -1;
+  background: #fffaf0;
+}
+
 .community-invite-grid {
   display: grid;
   gap: 8px;

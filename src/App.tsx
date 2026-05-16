@@ -862,17 +862,17 @@ function CommunityGate({
 
   const jumpToDiscord = () => {
     onUpdate({ callbackUrl, authorizationUrl, requiredGroups });
-    if (localPreview) {
-      verifyGroups(requiredGroups);
-      setStatus('本地预览已跳过 Discord 授权。');
-      return;
-    }
     const authUrl = buildCommunityAuthUrl({ ...config, callbackUrl, authorizationUrl, requiredGroups });
     if (!authUrl) {
       setStatus('Discord 应用还缺少 Client ID。请先在设置页的社区验证里填入 Discord Developer App 的 Client ID；玩家不会看到这个配置。');
       return;
     }
     window.location.assign(authUrl);
+  };
+
+  const enterLocalPreview = () => {
+    verifyGroups(requiredGroups);
+    setStatus('本地预览已跳过 Discord 授权。');
   };
 
   const openInvite = (url: string) => {
@@ -933,7 +933,10 @@ function CommunityGate({
           ))}
         </div>
         <div className="community-gate-actions">
-          <button type="button" onClick={jumpToDiscord}>{localPreview ? '本地预览直接进入' : '我已加入，使用 Discord 验证'}</button>
+          <button type="button" onClick={jumpToDiscord}>我已加入，使用 Discord 验证</button>
+          {localPreview && (
+            <button type="button" className="community-preview-button" onClick={enterLocalPreview}>本地预览直接进入</button>
+          )}
         </div>
         {showBackdoor && (
           <>

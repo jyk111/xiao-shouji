@@ -12,10 +12,18 @@ if (!sourcePath) {
 
 const source = path.resolve(sourcePath);
 const bytes = await fs.readFile(source);
-const dataUrl = `data:image/webp;base64,${bytes.toString('base64')}`;
+const ext = path.extname(source).toLowerCase();
+const mimeTypes = new Map([
+  ['.png', 'image/png'],
+  ['.jpg', 'image/jpeg'],
+  ['.jpeg', 'image/jpeg'],
+  ['.webp', 'image/webp'],
+]);
+const mimeType = mimeTypes.get(ext) || 'application/octet-stream';
+const dataUrl = `data:${mimeType};base64,${bytes.toString('base64')}`;
 
 await fs.mkdir(outDir, { recursive: true });
-await fs.copyFile(source, path.join(outDir, 'app-cover-source.webp'));
+await fs.copyFile(source, path.join(outDir, `app-cover-source${ext || '.img'}`));
 
 const chromeCandidates = [
   'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
@@ -42,36 +50,20 @@ await page.setContent(`
       <div id="icon" style="
         width:1024px;
         height:1024px;
-        background:
-          linear-gradient(135deg, rgba(255,255,255,.18), rgba(29,70,93,.18)),
-          url('${dataUrl}');
+        background: url('${dataUrl}');
         background-size: cover;
-        background-position: 52% 36%;
+        background-position: center;
       "></div>
       <div id="adaptive" style="
         width:1024px;
         height:1024px;
-        background:
-          radial-gradient(circle at 68% 20%, rgba(255,255,255,.36), transparent 23%),
-          linear-gradient(135deg, #f8edd7, #183f52);
-        display:grid;
-        place-items:center;
-      ">
-        <div style="
-          width:820px;
-          height:820px;
-          border-radius:230px;
-          overflow:hidden;
-          background:url('${dataUrl}') center 36% / cover no-repeat;
-          box-shadow: 0 0 0 24px #f8f0dc, 0 32px 80px rgba(10,36,52,.28);
-        "></div>
-      </div>
+        background: url('${dataUrl}') center / cover no-repeat;
+      "></div>
       <div id="favicon" style="
         width:196px;
         height:196px;
-        border-radius:48px;
         overflow:hidden;
-        background:url('${dataUrl}') 52% 36% / cover no-repeat;
+        background:url('${dataUrl}') center / cover no-repeat;
       "></div>
     </body>
   </html>
