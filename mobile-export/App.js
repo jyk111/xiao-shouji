@@ -41,6 +41,14 @@ export default function App() {
     `);
   }, []);
 
+  const openExternalUrl = React.useCallback((url) => {
+    if (!url || typeof url !== 'string') return;
+    Linking.openURL(url).catch((reason) => {
+      const message = reason?.message || '无法打开外部链接';
+      setError(message);
+    });
+  }, []);
+
   React.useEffect(() => {
     const subscription = Linking.addEventListener('url', (event) => {
       if (event.url?.startsWith('smallphone://discord-callback')) {
@@ -62,11 +70,25 @@ export default function App() {
       return false;
     }
     if (/^https:\/\/(discord\.gg|discord\.com)\//i.test(url)) {
-      Linking.openURL(url).catch(() => {});
+      openExternalUrl(url);
       return false;
     }
     return true;
-  }, [sendDiscordCallbackToWeb]);
+  }, [openExternalUrl, sendDiscordCallbackToWeb]);
+
+  const handleMessage = React.useCallback((event) => {
+    setLoaded(true);
+    const data = event?.nativeEvent?.data;
+    if (!data || data === 'small-phone-ready') return;
+    try {
+      const message = JSON.parse(data);
+      if (message?.type === 'open-url' && typeof message.url === 'string') {
+        openExternalUrl(message.url);
+      }
+    } catch {
+      // Ignore non-JSON messages from the WebView.
+    }
+  }, [openExternalUrl]);
 
   return (
     <View style={styles.root}>
@@ -90,7 +112,7 @@ export default function App() {
           injectedJavaScript={MOBILE_PATCH}
           onShouldStartLoadWithRequest={handleShouldStartLoad}
           onLoadEnd={() => setLoaded(true)}
-          onMessage={() => setLoaded(true)}
+          onMessage={handleMessage}
           onError={(event) => {
             setLoaded(true);
             setError(event.nativeEvent.description || 'WebView 加载失败');

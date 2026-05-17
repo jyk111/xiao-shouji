@@ -646,6 +646,17 @@ function isLocalCommunityPreview() {
   return ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname);
 }
 
+function openExternalUrl(url: string) {
+  const nativeWebView = (window as Window & {
+    ReactNativeWebView?: { postMessage?: (message: string) => void };
+  }).ReactNativeWebView;
+  if (isNativeSmallPhone() && nativeWebView?.postMessage) {
+    nativeWebView.postMessage(JSON.stringify({ type: 'open-url', url }));
+    return;
+  }
+  window.location.assign(url);
+}
+
 function getCommunityBackdoorApiUrl(config: import('./store').CommunityVerificationConfig) {
   const savedUrl = (config.backdoorApiUrl || '').trim().replace(/\/+$/, '');
   const defaultUrl = defaultCommunityBackdoorApiUrl.trim().replace(/\/+$/, '');
@@ -867,7 +878,8 @@ function CommunityGate({
       setStatus('Discord 应用还缺少 Client ID。请先在设置页的社区验证里填入 Discord Developer App 的 Client ID；玩家不会看到这个配置。');
       return;
     }
-    window.location.assign(authUrl);
+    openExternalUrl(authUrl);
+    setStatus('正在打开 Discord 授权页面...');
   };
 
   const enterLocalPreview = () => {
@@ -876,7 +888,7 @@ function CommunityGate({
   };
 
   const openInvite = (url: string) => {
-    window.location.assign(url);
+    openExternalUrl(url);
   };
 
   const revealBackdoorFromLoginTitle = () => {
