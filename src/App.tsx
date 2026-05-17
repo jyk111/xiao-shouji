@@ -647,13 +647,6 @@ function isLocalCommunityPreview() {
 }
 
 function openExternalUrl(url: string) {
-  const nativeWebView = (window as Window & {
-    ReactNativeWebView?: { postMessage?: (message: string) => void };
-  }).ReactNativeWebView;
-  if (isNativeSmallPhone() && nativeWebView?.postMessage) {
-    nativeWebView.postMessage(JSON.stringify({ type: 'open-url', url }));
-    return;
-  }
   window.location.assign(url);
 }
 

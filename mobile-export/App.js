@@ -69,12 +69,8 @@ export default function App() {
       sendDiscordCallbackToWeb(url);
       return false;
     }
-    if (/^https:\/\/(discord\.gg|discord\.com)\//i.test(url)) {
-      openExternalUrl(url);
-      return false;
-    }
     return true;
-  }, [openExternalUrl, sendDiscordCallbackToWeb]);
+  }, [sendDiscordCallbackToWeb]);
 
   const handleMessage = React.useCallback((event) => {
     setLoaded(true);
