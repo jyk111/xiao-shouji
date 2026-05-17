@@ -27,13 +27,13 @@ assert(
 );
 
 assert(
-  !/discord\\[^]*return false;/.test(app),
-  'App.js must not block Discord https navigation after intercepting it.',
+  /\^https:\\\/\\\/\(discord\\\.gg\|discord\\\.com\)\\\//.test(app) && /openExternalUrl\(url\);[\s\S]*?return false;/.test(app),
+  'App.js must open Discord links externally and stop WebView from keeping the login page inside the app.',
 );
 
 assert(
-  !webApp.includes("postMessage(JSON.stringify({ type: 'open-url'"),
-  'src/App.tsx must not route Discord login through the native open-url bridge.',
+  webApp.includes("postMessage(JSON.stringify({ type: 'open-url'"),
+  'src/App.tsx must route native Discord login through the open-url bridge.',
 );
 
 console.log('mobile export login regression checks passed');
